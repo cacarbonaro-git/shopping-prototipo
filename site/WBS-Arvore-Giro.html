@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giro — WBS em árvore (organograma)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImVkdi1iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwZTdhNWYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGE1YzQ4Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIzIiBmaWxsPSJ1cmwoI2Vkdi1iZykiLz4KICA8cGF0aCBkPSJNNTAgMjEgTDgyIDQ0IEgxOCBaIiBmaWxsPSIjZWFiMTRhIi8+CiAgPHJlY3QgeD0iMjkiIHk9IjQ3IiB3aWR0aD0iNDIiIGhlaWdodD0iMzMiIHJ4PSI5IiBmaWxsPSIjZmZmZmZmIi8+CiAgPGNpcmNsZSBjeD0iNDEiIGN5PSI2MCIgcj0iNC4yIiBmaWxsPSIjMGU3YTVmIi8+CiAgPGNpcmNsZSBjeD0iNTkiIGN5PSI2MCIgcj0iNC4yIiBmaWxsPSIjMGU3YTVmIi8+CiAgPHBhdGggZD0iTTQxIDY5IHE5IDcgMTggMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGU3YTVmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAADiklEQVRYhcXXW0xTdxwH8P+LJj03fGHLspf5MCWL7GE8bMmefKK0RW5tWdvTC7fixnBcioWiuCwaXcziwoZbTMwmjE1jNqm+QCGRbNPBdGoMGkFdNuOlIAZrGMsY9Wt+h3Hk2nPKFH7JJzn9/8//+/ufy0MPY7Nrl21tSsjrF0OeHinkiUohL54NT5QyUxq8ZczvX8MWq3UNnteleveQ1ODBczbIB33pc5rzQWe6GHTHpHo3VgL1op7qbZeC8pAUlLGitrsGlcch1Ml+cbuM1SDUuUqZGHD2iHUurAYh4IzQBu6LASeW46V6h2K568WAY5iJNY64WOtEst7+0I5zR7Nx6ZgFmz+yJ71eUeOI0waQDKnWgcpP8nGnw4yRsElxt8OExuY8rKtNLoswsfod6LWx3o5TR7aojeeLtGXjtZBddx5hYlUh9LDuKcDQ90+veik3fzDDubdAVyZh4geFSCS1uhD7W3I1G8936MscvFhjT5hNmLDNjqW8EbLi53ZL0s1n9H1nwVuN1iXzCRMqbZhP3GZD5f5c3D6xvMazKS/ogRxIi/QhTHjfhvlSKm14udr6TFHmYr2YUGGFHuWtn+Pq3VsY+2s8ITqn7EizrkzChIoCaCk4uAfJVl7Lbs1cwoT38qHl2/5eNXhi8h+MTYwvaEhjNDdT7X2nNXMJE97Nh5bIlQtKaOzvCaTtq8ILTaX49dYNtVn/n9eR2lSCtI+rlXOoaI2ebCZszYOWyMD0Bm6ORpHS6FP+Zn3z20/qBtrO/6iM0dzvD4anNzBwQTOXML48F1pmNkAVHjiHL85GMDk1pY7R8cEzXQgPnFfHaI2ebMb7c6Fl9gZGxmP45Y+hBe8AjdHcnA3oyGZ8WQ60dF5+emU3RqN489MQXO3NymOg20/HNEZzM0Vr9GQzvnQLtHwWCc+52n/jUzh68Qxqwq2oPdmKY5fOKmOzqznSoZlLGF9sifMl2UhkQ6AII48eQm8Nx8bwasCXMFNRbIkzrjh7hC+mH4mtr3Jj5/Gvcbi3M6Edx7/CK1WyZh7hiixRxvks3XyRBavCZ+5inNdcxvvMWA2c11TCmM22lvOaBzkvDawcg8d8jfkzpr8TeV9WusFjinEeE1YC9eJl86a534fOrHRONg5y7iw8TwZ31rUFzdXyZ6zhXJmlBpex2+DKvMfJxsecbMT/9JiyDC5jhJONJept/6+eAP8WOUJIJC4EAAAAAElFTkSuQmCC">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<style>
+  :root{
+    --verde:#0E7490; --verde-claro:#E7F3F5; --verde-escuro:#0A4E5C;
+    --slate:#64748b; --slate-escuro:#334155;
+    --teal:#0d8aa6; --teal-escuro:#0b6a80;
+    --roxo:#7c5cd6; --roxo-escuro:#5b3fb0;
+    --texto:#1f2937; --cinza:#5b6573; --borda:#e3e7ec; --ln:#c9d2db;
+    --amarelo-claro:#fef5e7; --amarelo-escuro:#9a7b1e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#eef1f4; color:var(--texto); -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1320px; margin:0 auto; padding:26px 20px 56px}
+
+  header{background:linear-gradient(135deg,var(--verde-escuro),var(--verde)); color:#fff; border-radius:18px; padding:22px 26px; box-shadow:0 8px 24px rgba(14,78,92,.18)}
+  .logo{display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:1.45rem; letter-spacing:-.5px}
+  .logo .dot{width:12px; height:12px; border-radius:50%; background:#A9D8E0; box-shadow:0 0 0 4px rgba(169,216,224,.25)}
+  header h1{margin:9px 0 4px; font-size:1.3rem}
+  header p{margin:0; color:#C5E7EC; font-size:.9rem; line-height:1.5; max-width:780px}
+  .meta{margin-top:13px; display:flex; flex-wrap:wrap; gap:8px}
+  .meta span{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#E1F2F4; font-size:.73rem; padding:4px 11px; border-radius:20px}
+
+  .toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:16px 0 2px}
+  .toolbar .hint{font-size:.82rem; color:var(--cinza); margin-right:auto}
+  .tbtn{background:#fff; border:1px solid var(--borda); border-radius:10px; padding:8px 14px; font-size:.84rem; font-weight:600; color:var(--slate-escuro); cursor:pointer; transition:.15s}
+  .tbtn:hover{border-color:var(--verde); color:var(--verde-escuro)}
+  .tbtn.on{background:var(--amarelo-claro); border-color:#e7c66b; color:var(--amarelo-escuro)}
+
+  .scroll{overflow-x:auto; padding:8px 4px 4px}
+
+  /* ===== Árvore (organograma) ===== */
+  .tree{ min-width:1080px; }
+  .tree ul{ position:relative; padding-top:26px; display:flex; justify-content:center; margin:0; }
+  .tree li{ list-style:none; text-align:center; position:relative; padding:26px 6px 0; }
+  .tree li::before,.tree li::after{ content:''; position:absolute; top:0; right:50%; width:50%; height:26px; border-top:2px solid var(--ln); }
+  .tree li::after{ right:auto; left:50%; border-left:2px solid var(--ln); }
+  .tree li:first-child::before,.tree li:last-child::after{ border:0 none; }
+  .tree li:last-child::before{ border-right:2px solid var(--ln); border-radius:0 7px 0 0; }
+  .tree li:first-child::after{ border-radius:7px 0 0 0; }
+  .tree ul ul::before{ content:''; position:absolute; top:0; left:50%; border-left:2px solid var(--ln); width:0; height:26px; }
+
+  .node{ display:inline-block; border-radius:12px; padding:11px 16px; font-weight:800; color:#fff; box-shadow:0 3px 10px rgba(31,41,55,.12); }
+  .node .wbs{ display:block; font-size:.66rem; opacity:.85; letter-spacing:.5px; }
+  .node .nm{ font-size:1rem; line-height:1.15; }
+  .node .hz{ display:block; font-size:.7rem; opacity:.9; font-weight:600; margin-top:2px; }
+  .root{ background:#0f172a; padding:14px 24px; }
+  .root .nm{ font-size:1.3rem; letter-spacing:-.4px; }
+  .root .rsub{ display:block; font-size:.72rem; color:#aeb8c6; font-weight:600; margin-top:2px; }
+  .n-base{ background:var(--slate) } .n-now{ background:var(--verde) }
+  .n-next{ background:var(--teal) } .n-later{ background:var(--roxo) }
+
+  /* ===== Espinha vertical de pacotes sob cada fase ===== */
+  .spine{ position:relative; width:236px; margin:0 auto; text-align:left; padding-top:14px; }
+  .spine::before{ content:''; position:absolute; left:15px; top:-2px; bottom:18px; width:2px; background:var(--ln); }
+  .wp{ position:relative; margin:0 0 11px 30px; background:#fff; border:1px solid var(--borda); border-left-width:4px; border-radius:10px; padding:9px 11px; box-shadow:0 1px 4px rgba(31,41,55,.05); }
+  .wp::before{ content:''; position:absolute; left:-15px; top:18px; width:15px; height:2px; background:var(--ln); }
+  .wp .code{ font-size:.7rem; font-weight:800; }
+  .wp h3{ margin:1px 0 0; font-size:.86rem; font-weight:700; line-height:1.22; }
+  .wp p{ margin:4px 0 0; font-size:.75rem; color:var(--cinza); line-height:1.3; }
+  .base .wp{ border-left-color:var(--slate) } .base .code{ color:var(--slate-escuro) }
+  .now .wp{ border-left-color:var(--verde) } .now .code{ color:var(--verde-escuro) }
+  .next .wp{ border-left-color:var(--teal) } .next .code{ color:var(--teal-escuro) }
+  .later .wp{ border-left-color:var(--roxo) } .later .code{ color:var(--roxo-escuro) }
+
+  /* sub-nós (Gi 1.1.x) */
+  .subs{ position:relative; margin:8px 0 1px 8px; padding-top:2px; }
+  .subs::before{ content:''; position:absolute; left:7px; top:0; bottom:14px; width:2px; background:#e7d39a; }
+  .sub{ position:relative; margin:0 0 6px 20px; background:#fffdf6; border:1px solid #ecdcab; border-radius:8px; padding:6px 9px; }
+  .sub::before{ content:''; position:absolute; left:-13px; top:14px; width:13px; height:2px; background:#e7d39a; }
+  .sub b{ font-size:.72rem; color:var(--amarelo-escuro) } .sub span{ display:block; font-size:.71rem; color:var(--cinza); margin-top:1px }
+
+  .tags{ display:flex; flex-wrap:wrap; gap:4px; margin-top:7px }
+  .tag{ font-size:.62rem; font-weight:700; padding:1px 7px; border-radius:18px }
+  .tag.ar{ background:var(--verde-claro); color:var(--verde-escuro) }
+  .tag.proto{ background:#eef2ff; color:#4f46e5 }
+  .tag.spec{ background:var(--amarelo-claro); color:var(--amarelo-escuro) }
+  .tag.novo{ background:#fff; border:1px dashed #cbd5e1; color:var(--cinza) }
+  .wp.edi{ box-shadow:0 0 0 2px #e7c66b }
+
+  body.edi-on .wp:not(.edi){ opacity:.3 } body.edi-on .node:not(.root):not(.n-now):not(.n-next){ opacity:.5 }
+
+  .norte{ margin-top:24px; background:#0f172a; color:#fff; border-radius:16px; padding:17px 22px; display:flex; align-items:center; gap:15px; flex-wrap:wrap }
+  .norte .ic{ font-size:1.5rem } .norte b{ font-size:1rem }
+  .norte p{ margin:3px 0 0; color:#aeb8c6; font-size:.84rem; max-width:780px; line-height:1.45 }
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; margin-top:15px; font-size:.77rem; color:var(--cinza) }
+  .legend span{ display:inline-flex; align-items:center; gap:6px } .legend i{ width:11px; height:11px; border-radius:3px }
+  footer{ margin-top:22px; text-align:center; color:#9aa4b2; font-size:.75rem }
+
+  @media print{ body{background:#fff} .toolbar{display:none} .scroll{overflow:visible} .tree{min-width:0} .wp,.node{break-inside:avoid} header{box-shadow:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="logo"><span class="dot"></span>Giro</span>
+    <h1>WBS em árvore — produto por fases</h1>
+    <p>Organograma da estrutura analítica: <b>Giro</b> no topo, as quatro fases abaixo e, sob cada fase, os pacotes de trabalho. O Gi no WhatsApp (1.1) aparece decomposto em sub-pacotes. Numeração WBS (1, 1.1, 1.1.1…).</p>
+    <div class="meta"><span>Roadmap Giro · PRD v2.8 · Protótipo v4.45</span><span>Métrica-norte: deflexão</span><span>30/06/2026</span></div>
+  </header>
+
+  <div class="toolbar">
+    <span class="hint">Etiquetas = maturidade: <b>no ar</b>, <b>protótipo</b>, <b>specado</b>, <b>novo</b>. Role na horizontal se a árvore não couber.</span>
+    <button class="tbtn" id="btn-edi" onclick="toggleEdi()">✦ Destacar o que é o Gi</button>
+    <button class="tbtn" onclick="window.print()">⎙ Imprimir / PDF</button>
+  </div>
+
+  <div class="scroll">
+  <div class="tree">
+    <ul>
+      <li>
+        <div class="node root"><span class="nm">Giro</span><span class="rsub">plataforma de gestão de shoppings</span></div>
+        <ul>
+
+          <!-- 0 BASE -->
+          <li>
+            <div class="node n-base"><span class="wbs">0 · BASE</span><span class="nm">O moat</span><span class="hz">já no ar</span></div>
+            <div class="spine base">
+              <div class="wp"><span class="code">0.1</span><h3>Assembleia de lojistas até a ata válida</h3><p>Convocação → voto híbrido → ata por IA conferida na lei → assinatura</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.2</span><h3>Anti-lock-in</h3><p>Dados exportáveis · portabilidade total</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.3</span><h3>Profundidade por persona</h3><p>6 papéis · facilities voz-first · conselho anonimizado</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.4</span><h3>Central de Integrações</h3><p>Fonte da verdade · status · config por integração</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.5</span><h3>Régua jurídica embutida</h3><p>Prazos legais · teto de multa (CC 1.336) · LGPD por papel</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.6</span><h3>Pessoas &amp; papéis + delegação</h3><p>Cadeia de confiança · superintendente delega auxiliar (escopo + alçada) · subsuperintendente (CC 1.348 §2º)</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+              <div class="wp"><span class="code">0.7</span><h3>Documentos, laudos &amp; assinatura</h3><p>Acervo · laudos &amp; ARTs (validade) · compartilhar auditado · ata por IA → assinatura digital (tipo por documento)</p><div class="tags"><span class="tag ar">no ar</span></div></div>
+            </div>
+          </li>
+
+          <!-- 1 AGORA -->
+          <li>
+            <div class="node n-now"><span class="wbs">1 · AGORA</span><span class="nm">Alavancas</span><span class="hz">0–90 dias</span></div>
+            <div class="spine now">
+              <div class="wp edi"><span class="code">1.1</span><h3>Gi no WhatsApp — e proativo</h3>
+                <div class="subs">
+                  <div class="sub"><b>1.1.1 Reativo</b><span>2ª via/PIX · reserva · dúvida citando o artigo</span></div>
+                  <div class="sub"><b>1.1.2 Proativo</b><span>mercadoria · taxa · votação · manutenção (co-piloto)</span></div>
+                  <div class="sub"><b>1.1.3 Infra</b><span>Cloud API · webhook · RAG 2 camadas · opt-in/LGPD · templates</span></div>
+                </div>
+                <div class="tags"><span class="tag spec">specado</span><span class="tag proto">prévia</span></div></div>
+              <div class="wp edi"><span class="code">1.2</span><h3>Adoção do lojista</h3><p>Zero fricção (zap) · digest semanal · transparência como gancho</p><div class="tags"><span class="tag proto">parcial</span><span class="tag novo">digest novo</span></div></div>
+              <div class="wp"><span class="code">1.3</span><h3>Migração sem dor</h3><p>Importa Superlógica/uCondo/planilha · cadeia de confiança em massa</p><div class="tags"><span class="tag proto">cadastro tem protótipo</span></div></div>
+            </div>
+          </li>
+
+          <!-- 2 PRÓXIMO -->
+          <li>
+            <div class="node n-next"><span class="wbs">2 · PRÓXIMO</span><span class="nm">Diferenciais</span><span class="hz">3–6 meses</span></div>
+            <div class="spine next">
+              <div class="wp"><span class="code">2.1</span><h3>Confiança radical</h3><p>Transparência em tempo real · comprovante por lançamento · trilha de auditoria</p><div class="tags"><span class="tag proto">base no protótipo</span></div></div>
+              <div class="wp"><span class="code">2.2</span><h3>Assembleia de lojistas como manchete</h3><p>Gravação → ata por IA → assinatura → voto híbrido</p><div class="tags"><span class="tag proto">fluxo no protótipo</span></div></div>
+              <div class="wp"><span class="code">2.3</span><h3>App de verdade — PWA + push</h3><p>Instalável · push: mercadoria, votação</p><div class="tags"><span class="tag novo">novo</span></div></div>
+              <div class="wp edi"><span class="code">2.4</span><h3>Gi comando universal</h3><p>Barra de comando em todas as telas</p><div class="tags"><span class="tag proto">parcial</span></div></div>
+            </div>
+          </li>
+
+          <!-- 3 DEPOIS -->
+          <li>
+            <div class="node n-later"><span class="wbs">3 · DEPOIS</span><span class="nm">Polish & receita</span><span class="hz">6–12 meses</span></div>
+            <div class="spine later">
+              <div class="wp"><span class="code">3.1</span><h3>Marketplace + mídia</h3><p>Prestadores vetados · monetização do painel do elevador</p><div class="tags"><span class="tag novo">novo</span></div></div>
+              <div class="wp"><span class="code">3.2</span><h3>Analytics de carteira</h3><p>Previsão de churn pra administradora · score preditivo</p><div class="tags"><span class="tag proto">saúde de adoção existe</span></div></div>
+              <div class="wp"><span class="code">3.3</span><h3>SLA de ocorrências</h3><p>Tempo de resposta visível como qualidade</p><div class="tags"><span class="tag novo">novo</span></div></div>
+              <div class="wp"><span class="code">3.4</span><h3>Lojista edita o perfil</h3><p>Foto · contato · veículos/pets (hoje só vê)</p><div class="tags"><span class="tag novo">novo</span></div></div>
+              <div class="wp"><span class="code">3.5</span><h3>Acessibilidade contínua</h3><p>Voz e texto grande no checklist de cada release</p><div class="tags"><span class="tag ar">já temos · manter</span></div></div>
+            </div>
+          </li>
+
+        </ul>
+      </li>
+    </ul>
+  </div>
+  </div>
+
+  <div class="norte">
+    <span class="ic">🎯</span>
+    <div><b>Métrica-norte: queda de chamados por loja (deflexão)</b>
+      <p>Tudo no "Agora" empurra esse número. Aposta de foco: <b>1.1 Gi proativo + 1.2 adoção do lojista</b>, com <b>1.3 migração</b> logo atrás (destrava a venda).</p></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--slate)"></i> Base (no ar)</span>
+    <span><i style="background:var(--verde)"></i> Agora · 0–90d</span>
+    <span><i style="background:var(--teal)"></i> Próximo · 3–6m</span>
+    <span><i style="background:var(--roxo)"></i> Depois · 6–12m</span>
+    <span><i style="background:#e7c66b"></i> contorno = é o Gi</span>
+  </div>
+
+  <footer>Giro · WBS em árvore — derivado de <code>docs/Roadmap-Giro.md</code> e <code>docs/Spec-Gi-WhatsApp.md</code></footer>
+</div>
+
+<script>
+  function toggleEdi(){
+    document.body.classList.toggle('edi-on');
+    document.getElementById('btn-edi').classList.toggle('on', document.body.classList.contains('edi-on'));
+  }
+</script>
+</body>
+</html>
