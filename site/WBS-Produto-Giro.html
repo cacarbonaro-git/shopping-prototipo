@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giro — WBS de produto por fases</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImVkdi1iZyIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMwZTdhNWYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGE1YzQ4Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIzIiBmaWxsPSJ1cmwoI2Vkdi1iZykiLz4KICA8cGF0aCBkPSJNNTAgMjEgTDgyIDQ0IEgxOCBaIiBmaWxsPSIjZWFiMTRhIi8+CiAgPHJlY3QgeD0iMjkiIHk9IjQ3IiB3aWR0aD0iNDIiIGhlaWdodD0iMzMiIHJ4PSI5IiBmaWxsPSIjZmZmZmZmIi8+CiAgPGNpcmNsZSBjeD0iNDEiIGN5PSI2MCIgcj0iNC4yIiBmaWxsPSIjMGU3YTVmIi8+CiAgPGNpcmNsZSBjeD0iNTkiIGN5PSI2MCIgcj0iNC4yIiBmaWxsPSIjMGU3YTVmIi8+CiAgPHBhdGggZD0iTTQxIDY5IHE5IDcgMTggMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGU3YTVmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAADiklEQVRYhcXXW0xTdxwH8P+LJj03fGHLspf5MCWL7GE8bMmefKK0RW5tWdvTC7fixnBcioWiuCwaXcziwoZbTMwmjE1jNqm+QCGRbNPBdGoMGkFdNuOlIAZrGMsY9Wt+h3Hk2nPKFH7JJzn9/8//+/ufy0MPY7Nrl21tSsjrF0OeHinkiUohL54NT5QyUxq8ZczvX8MWq3UNnteleveQ1ODBczbIB33pc5rzQWe6GHTHpHo3VgL1op7qbZeC8pAUlLGitrsGlcch1Ml+cbuM1SDUuUqZGHD2iHUurAYh4IzQBu6LASeW46V6h2K568WAY5iJNY64WOtEst7+0I5zR7Nx6ZgFmz+yJ71eUeOI0waQDKnWgcpP8nGnw4yRsElxt8OExuY8rKtNLoswsfod6LWx3o5TR7aojeeLtGXjtZBddx5hYlUh9LDuKcDQ90+veik3fzDDubdAVyZh4geFSCS1uhD7W3I1G8936MscvFhjT5hNmLDNjqW8EbLi53ZL0s1n9H1nwVuN1iXzCRMqbZhP3GZD5f5c3D6xvMazKS/ogRxIi/QhTHjfhvlSKm14udr6TFHmYr2YUGGFHuWtn+Pq3VsY+2s8ITqn7EizrkzChIoCaCk4uAfJVl7Lbs1cwoT38qHl2/5eNXhi8h+MTYwvaEhjNDdT7X2nNXMJE97Nh5bIlQtKaOzvCaTtq8ILTaX49dYNtVn/n9eR2lSCtI+rlXOoaI2ebCZszYOWyMD0Bm6ORpHS6FP+Zn3z20/qBtrO/6iM0dzvD4anNzBwQTOXML48F1pmNkAVHjiHL85GMDk1pY7R8cEzXQgPnFfHaI2ebMb7c6Fl9gZGxmP45Y+hBe8AjdHcnA3oyGZ8WQ60dF5+emU3RqN489MQXO3NymOg20/HNEZzM0Vr9GQzvnQLtHwWCc+52n/jUzh68Qxqwq2oPdmKY5fOKmOzqznSoZlLGF9sifMl2UhkQ6AII48eQm8Nx8bwasCXMFNRbIkzrjh7hC+mH4mtr3Jj5/Gvcbi3M6Edx7/CK1WyZh7hiixRxvks3XyRBavCZ+5inNdcxvvMWA2c11TCmM22lvOaBzkvDawcg8d8jfkzpr8TeV9WusFjinEeE1YC9eJl86a534fOrHRONg5y7iw8TwZ31rUFzdXyZ6zhXJmlBpex2+DKvMfJxsecbMT/9JiyDC5jhJONJept/6+eAP8WOUJIJC4EAAAAAElFTkSuQmCC">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<style>
+  :root{
+    --verde:#0E7490; --verde-claro:#E7F3F5; --verde-escuro:#0A4E5C;
+    --slate:#64748b; --slate-claro:#f1f5f9; --slate-escuro:#334155;
+    --teal:#0d8aa6; --teal-claro:#e4f5f9; --teal-escuro:#0b6a80;
+    --roxo:#7c5cd6; --roxo-claro:#f0ebfb; --roxo-escuro:#5b3fb0;
+    --texto:#1f2937; --cinza:#5b6573; --borda:#e3e7ec; --branco:#fff;
+    --amarelo-claro:#fef5e7; --amarelo-escuro:#9a7b1e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#eef1f4; color:var(--texto); -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px; margin:0 auto; padding:26px 20px 60px}
+
+  /* Cabeçalho */
+  header{background:linear-gradient(135deg,var(--verde-escuro),var(--verde)); color:#fff; border-radius:18px; padding:24px 26px; box-shadow:0 8px 24px rgba(14,78,92,.18)}
+  .logo{display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:1.5rem; letter-spacing:-.5px}
+  .logo .dot{width:12px; height:12px; border-radius:50%; background:#A9D8E0; box-shadow:0 0 0 4px rgba(169,216,224,.25)}
+  header h1{margin:10px 0 4px; font-size:1.35rem; font-weight:700}
+  header p{margin:0; color:#C5E7EC; font-size:.92rem; line-height:1.5; max-width:760px}
+  .meta{margin-top:14px; display:flex; flex-wrap:wrap; gap:8px}
+  .meta span{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#E1F2F4; font-size:.74rem; padding:4px 11px; border-radius:20px}
+
+  .toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:18px 0 6px}
+  .toolbar .hint{font-size:.82rem; color:var(--cinza); margin-right:auto}
+  .tbtn{background:#fff; border:1px solid var(--borda); border-radius:10px; padding:8px 14px; font-size:.84rem; font-weight:600; color:var(--slate-escuro); cursor:pointer; transition:.15s}
+  .tbtn:hover{border-color:var(--verde); color:var(--verde-escuro)}
+  .tbtn.on{background:var(--amarelo-claro); border-color:#e7c66b; color:var(--amarelo-escuro)}
+
+  /* Linha do tempo */
+  .timeline{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 22px}
+  .tl{position:relative; background:#fff; border:1px solid var(--borda); border-radius:12px; padding:11px 13px; overflow:hidden}
+  .tl::before{content:""; position:absolute; left:0; top:0; bottom:0; width:5px}
+  .tl b{display:block; font-size:.9rem}
+  .tl small{color:var(--cinza); font-size:.74rem}
+  .tl.base::before{background:var(--slate)} .tl.now::before{background:var(--verde)}
+  .tl.next::before{background:var(--teal)} .tl.later::before{background:var(--roxo)}
+
+  /* Colunas de fase */
+  .board{display:grid; grid-template-columns:0.85fr 1.15fr 1fr 1fr; gap:16px; align-items:start}
+  .col{background:#fff; border:1px solid var(--borda); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(31,41,55,.04)}
+  .col > .head{padding:14px 15px; color:#fff}
+  .col.base > .head{background:var(--slate)} .col.now > .head{background:var(--verde)}
+  .col.next > .head{background:var(--teal)} .col.later > .head{background:var(--roxo)}
+  .col .head .wbs{font-size:.72rem; opacity:.85; font-weight:700; letter-spacing:.5px}
+  .col .head h2{margin:2px 0 2px; font-size:1.05rem; font-weight:800}
+  .col .head .hz{font-size:.76rem; opacity:.9}
+  .col .body{padding:12px 12px 16px; display:flex; flex-direction:column; gap:10px}
+
+  /* Pacote de trabalho */
+  .pkg{border:1px solid var(--borda); border-radius:12px; padding:11px 12px; background:#fff; transition:.15s}
+  .pkg .ptop{display:flex; align-items:baseline; gap:7px}
+  .pkg .code{font-size:.72rem; font-weight:800; color:#fff; border-radius:6px; padding:1px 7px; flex:0 0 auto}
+  .col.base .code{background:var(--slate)} .col.now .code{background:var(--verde)}
+  .col.next .code{background:var(--teal)} .col.later .code{background:var(--roxo)}
+  .pkg h3{margin:0; font-size:.94rem; font-weight:700; line-height:1.25}
+  .pkg ul{margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:5px}
+  .pkg li{position:relative; padding-left:16px; font-size:.82rem; color:var(--slate-escuro); line-height:1.35}
+  .pkg li::before{content:""; position:absolute; left:3px; top:.5em; width:6px; height:6px; border-radius:50%; background:var(--borda)}
+  .col.base .pkg li::before{background:#cbd5e1} .col.now .pkg li::before{background:#7fccb4}
+  .col.next .pkg li::before{background:#86cbdb} .col.later .pkg li::before{background:#c3b1ef}
+  .tags{display:flex; flex-wrap:wrap; gap:5px; margin-top:9px}
+  .tag{font-size:.66rem; font-weight:700; padding:2px 8px; border-radius:20px}
+  .tag.ar{background:var(--verde-claro); color:var(--verde-escuro)}
+  .tag.proto{background:#eef2ff; color:#4f46e5}
+  .tag.spec{background:var(--amarelo-claro); color:var(--amarelo-escuro)}
+  .tag.novo{background:#fff; border:1px dashed #cbd5e1; color:var(--cinza)}
+  .pkg.edi{box-shadow:0 0 0 2px #e7c66b inset}
+
+  /* dim para o destaque Gi */
+  body.edi-on .pkg:not(.edi){opacity:.32}
+  body.edi-on .col .head{opacity:.6}
+
+  /* Métrica-norte */
+  .norte{margin-top:22px; background:#0f172a; color:#fff; border-radius:16px; padding:18px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+  .norte .ic{font-size:1.6rem}
+  .norte b{font-size:1.02rem}
+  .norte p{margin:3px 0 0; color:#aeb8c6; font-size:.85rem; max-width:760px; line-height:1.45}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; font-size:.78rem; color:var(--cinza)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{width:11px; height:11px; border-radius:3px; display:inline-block}
+  footer{margin-top:24px; text-align:center; color:#9aa4b2; font-size:.76rem}
+
+  @media (max-width:1080px){ .board{grid-template-columns:1fr 1fr} .timeline{grid-template-columns:1fr 1fr} }
+  @media (max-width:620px){ .board,.timeline{grid-template-columns:1fr} }
+  @media print{ body{background:#fff} .toolbar{display:none} .col,.pkg{break-inside:avoid} header{box-shadow:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="logo"><span class="dot"></span>Giro</span>
+    <h1>WBS de produto — funcionalidades por fase</h1>
+    <p>Decomposição do roadmap em pacotes de trabalho (estrutura analítica). A <b>Base</b> é o que já está no ar no protótipo; <b>Agora / Próximo / Depois</b> é o que se constrói, em horizonte crescente. Numeração no padrão WBS (1, 1.1, 1.1.1…).</p>
+    <div class="meta"><span>Base: Roadmap Giro · PRD v2.8 · Protótipo v4.45</span><span>Métrica-norte: deflexão</span><span>30/06/2026</span></div>
+  </header>
+
+  <div class="toolbar">
+    <span class="hint">As etiquetas mostram a maturidade de cada pacote: o que já está <b>no ar</b>, o que tem <b>protótipo</b>, o que está <b>specado</b> e o que é <b>novo</b>.</span>
+    <button class="tbtn" id="btn-edi" onclick="toggleEdi()">✦ Destacar o que é o Gi</button>
+    <button class="tbtn" onclick="window.print()">⎙ Imprimir / PDF</button>
+  </div>
+
+  <div class="timeline">
+    <div class="tl base"><b>0 · Base</b><small>já no ar — o moat</small></div>
+    <div class="tl now"><b>1 · Agora</b><small>0–90 dias</small></div>
+    <div class="tl next"><b>2 · Próximo</b><small>3–6 meses</small></div>
+    <div class="tl later"><b>3 · Depois</b><small>6–12 meses</small></div>
+  </div>
+
+  <div class="board">
+
+    <!-- BASE -->
+    <section class="col base">
+      <div class="head"><div class="wbs">0 · BASE</div><h2>O moat — não diluir</h2><div class="hz">já no ar no protótipo</div></div>
+      <div class="body">
+        <div class="pkg"><div class="ptop"><span class="code">0.1</span><h3>Assembleia de lojistas até a ata válida</h3></div>
+          <ul><li>Convocação à prova de nulidade → voto híbrido</li><li>Ata por IA conferida na lei → assinatura digital</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.2</span><h3>Anti-lock-in</h3></div>
+          <ul><li>Dados sempre exportáveis · portabilidade total</li><li>Ataca o medo nº 1 de trocar de sistema</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.3</span><h3>Profundidade por persona</h3></div>
+          <ul><li>6 papéis: superintendente, lojista, facilities, portaria, conselho, administradora</li><li>Facilities voz-first/offline · conselho com agregado anonimizado (LGPD)</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.4</span><h3>Central de Integrações</h3></div>
+          <ul><li>Fonte da verdade: status, dono carteira × shopping</li><li>Configuração por integração</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.5</span><h3>Régua jurídica embutida</h3></div>
+          <ul><li>Prazos legais de manutenção · teto de multa (CC 1.336)</li><li>LGPD por papel</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.6</span><h3>Pessoas &amp; papéis + delegação</h3></div>
+          <ul><li>Cadeia de confiança: convidar/aprovar/bloquear acesso, com mandato e auditoria</li><li>Superintendente delega auxiliar de gestão (escopo + teto de alçada); subsuperintendente pela régua legal (CC 1.348 §2º)</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">0.7</span><h3>Documentos, laudos &amp; assinatura</h3></div>
+          <ul><li>Acervo com laudos &amp; ARTs (responsável, validade) e compartilhar auditado</li><li>Ata por IA → assinatura digital (tipo por documento: avançada / qualificada ICP-Brasil)</li></ul>
+          <div class="tags"><span class="tag ar">no ar</span></div></div>
+      </div>
+    </section>
+
+    <!-- AGORA -->
+    <section class="col now">
+      <div class="head"><div class="wbs">1 · AGORA</div><h2>Alavancas decisivas</h2><div class="hz">0–90 dias</div></div>
+      <div class="body">
+        <div class="pkg edi"><div class="ptop"><span class="code">1.1</span><h3>Gi no WhatsApp — e proativo</h3></div>
+          <ul>
+            <li><b>1.1.1 Reativo:</b> 2ª via/PIX, reserva, dúvida do regimento citando o artigo</li>
+            <li><b>1.1.2 Proativo:</b> mercadoria, taxa, votação, manutenção do superintendente (co-piloto)</li>
+            <li><b>1.1.3 Infra:</b> Cloud API, webhook, RAG das 2 camadas + dados, opt-in/LGPD, templates utility</li>
+          </ul>
+          <div class="tags"><span class="tag spec">specado</span><span class="tag proto">prévia no protótipo</span></div></div>
+        <div class="pkg edi"><div class="ptop"><span class="code">1.2</span><h3>Adoção do lojista</h3></div>
+          <ul><li>Zero fricção — resolve no zap sem instalar (vem do 1.1)</li><li>Digest semanal no WhatsApp: prédio · sua taxa · votação aberta</li><li>Transparência como gancho — ver pra onde vai o dinheiro</li></ul>
+          <div class="tags"><span class="tag proto">parcial no protótipo</span><span class="tag novo">digest novo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">1.3</span><h3>Migração sem dor</h3></div>
+          <ul><li>Assistente de migração: importa carteira, lojas, lojistas e histórico (Superlógica/uCondo/planilha)</li><li>Cadeia de confiança em massa — versão atacado de "Pessoas & papéis"</li></ul>
+          <div class="tags"><span class="tag proto">cadastro tem protótipo</span><span class="tag novo">import novo</span></div></div>
+      </div>
+    </section>
+
+    <!-- PRÓXIMO -->
+    <section class="col next">
+      <div class="head"><div class="wbs">2 · PRÓXIMO</div><h2>Aprofundar diferenciais</h2><div class="hz">3–6 meses</div></div>
+      <div class="body">
+        <div class="pkg"><div class="ptop"><span class="code">2.1</span><h3>Confiança radical</h3></div>
+          <ul><li>Transparência financeira em tempo real</li><li>Comprovante por lançamento</li><li>Trilha de auditoria que o conselho audita sozinho</li></ul>
+          <div class="tags"><span class="tag proto">base no protótipo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">2.2</span><h3>Assembleia de lojistas como manchete</h3></div>
+          <ul><li>Gravação → transcrição → ata por IA conferida na lei</li><li>Assinatura digital da ata → voto híbrido</li><li>"Da convocação à ata assinada"</li></ul>
+          <div class="tags"><span class="tag proto">fluxo no protótipo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">2.3</span><h3>App de verdade — PWA + push</h3></div>
+          <ul><li>Instalável, sem loja</li><li>Notificação push: mercadoria chegou, votação abriu</li></ul>
+          <div class="tags"><span class="tag novo">novo</span></div></div>
+        <div class="pkg edi"><div class="ptop"><span class="code">2.4</span><h3>Gi como comando universal</h3></div>
+          <ul><li>Barra de comando do Gi em todas as telas</li><li>Hoje é parcial (home + botão flutuante)</li></ul>
+          <div class="tags"><span class="tag proto">parcial no protótipo</span></div></div>
+      </div>
+    </section>
+
+    <!-- DEPOIS -->
+    <section class="col later">
+      <div class="head"><div class="wbs">3 · DEPOIS</div><h2>Polish e novas receitas</h2><div class="hz">6–12 meses</div></div>
+      <div class="body">
+        <div class="pkg"><div class="ptop"><span class="code">3.1</span><h3>Marketplace + mídia</h3></div>
+          <ul><li>Prestadores vetados</li><li>Monetização do mural / painel do elevador (rateio abate a mensalidade)</li></ul>
+          <div class="tags"><span class="tag novo">novo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">3.2</span><h3>Analytics de carteira</h3></div>
+          <ul><li>Previsão de churn pra administradora</li><li>Aprofunda a "saúde de adoção" com score preditivo</li></ul>
+          <div class="tags"><span class="tag proto">saúde de adoção existe</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">3.3</span><h3>SLA de ocorrências</h3></div>
+          <ul><li>Tempo de resposta visível como métrica de qualidade</li></ul>
+          <div class="tags"><span class="tag novo">novo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">3.4</span><h3>Lojista edita o perfil</h3></div>
+          <ul><li>Foto, contato, veículos/pets</li><li>Hoje só visualiza</li></ul>
+          <div class="tags"><span class="tag novo">novo</span></div></div>
+        <div class="pkg"><div class="ptop"><span class="code">3.5</span><h3>Acessibilidade contínua</h3></div>
+          <ul><li>Voz (facilities/idosos) e texto grande no checklist de cada release</li></ul>
+          <div class="tags"><span class="tag ar">já temos · manter</span></div></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="norte">
+    <span class="ic">🎯</span>
+    <div><b>Métrica-norte: queda de chamados por loja (deflexão)</b>
+      <p>Tudo no "Agora" empurra esse número. É o que prova valor pro superintendente, alimenta a retenção da administradora e justifica o preço. Aposta de foco: <b>1.1 Gi proativo + 1.2 adoção do lojista</b>, com <b>1.3 migração</b> logo atrás (destrava a venda).</p></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--slate)"></i> Base (no ar)</span>
+    <span><i style="background:var(--verde)"></i> Agora · 0–90d</span>
+    <span><i style="background:var(--teal)"></i> Próximo · 3–6m</span>
+    <span><i style="background:var(--roxo)"></i> Depois · 6–12m</span>
+    <span><i style="background:#e7c66b"></i> contorno = é o Gi</span>
+  </div>
+
+  <footer>Giro · WBS de produto — derivado de <code>docs/Roadmap-Giro.md</code> e <code>docs/Spec-Gi-WhatsApp.md</code></footer>
+</div>
+
+<script>
+  function toggleEdi(){
+    document.body.classList.toggle('edi-on');
+    document.getElementById('btn-edi').classList.toggle('on', document.body.classList.contains('edi-on'));
+  }
+</script>
+</body>
+</html>
