@@ -427,7 +427,7 @@
 <script>
 'use strict';
 /* Versão do protótipo — aparece na barra superior. Atualize a cada release. */
-const VERSAO='Giro v1.5';
+const VERSAO='Giro v1.7';
 /* ============================================================
    Giro — protótipo navegável (sem servidor, dados em memória)
    Shopping fictício: Shopping Pátio Central, Osasco/SP, 60 lojas
@@ -802,7 +802,7 @@ function aplicarTema(){
 
 /* ===== MARCA / WHITE-LABEL ===== */
 /* marca exibida (marcaModo): 'viva' = logo Giro inline · 'nome' = nome do shopping · 'logo' = imagem enviada */
-function marcaHTML(ctx, forceDark){
+function marcaHTML(ctx, forceDark, accCol, goldCol){
   const big = ctx==='login' ? ' big' : '';
   const dark = (forceDark!==undefined) ? forceDark : temaEscuro();
   /* logo próprio enviado (white-label de imagem) — escolhe a variante pelo fundo */
@@ -810,41 +810,64 @@ function marcaHTML(ctx, forceDark){
     const src = dark ? (logoWLDark||logoWL) : (logoWL||logoWLDark);
     return `<div class="viva-logo${big}" style="justify-content:center"><img src="${src}" alt="Logo do shopping" style="max-height:${ctx==='login'?'70px':'42px'}; max-width:220px; object-fit:contain"></div>`;
   }
-  const palavra = marcaModo==='nome' ? `<span class="vl-word">${COND.nome}</span>` : `<span class="vl-word">Giro</span>`;
+  /* accCol/goldCol: override inline (usado no preview do white-label, pra mostrar a cor SEM aplicar no app) */
+  const stroke = accCol || 'var(--verde)', gold = goldCol || 'var(--gold)';
+  const wordSt = accCol ? ` style="color:${accCol}"` : '';
+  const palavra = marcaModo==='nome' ? `<span class="vl-word"${wordSt}>${COND.nome}</span>` : `<span class="vl-word"${wordSt}>Giro</span>`;
   return `<div class="viva-logo${big}${dark?' vl-dark':''}">
     <svg class="vl-mark" viewBox="0 0 100 100" aria-hidden="true">
-      <path d="M55 14.4 A36 36 0 1 1 45 14.4" fill="none" stroke="var(--verde)" stroke-width="9" stroke-linecap="round"/>
-      <path d="M45 8 L45 20.8 L34.5 14.4 Z" fill="var(--gold)"/>
-      <rect x="36" y="47" width="28" height="26" rx="6" fill="var(--gold)"/>
+      <path d="M55 14.4 A36 36 0 1 1 45 14.4" fill="none" stroke="${stroke}" stroke-width="9" stroke-linecap="round"/>
+      <path d="M45 8 L45 20.8 L34.5 14.4 Z" fill="${gold}"/>
+      <rect x="36" y="47" width="28" height="26" rx="6" fill="${gold}"/>
       <path d="M43.5 47 v-4 a6.5 6.5 0 0 1 13 0 v4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
     </svg>${palavra}
   </div>`;
 }
 /* cartão de preview dentro do modal: mini-app no contexto + checagem de contraste */
 function marcaBar(){
+  /* PREVIEW ISOLADO: renderiza com as cores de RASCUNHO (inline), sem aplicar no app.
+     Assim, mexer nas cores muda só este cartão — o app só muda quando você toca em Pronto. */
   const acc = corCustom || (TEMAS[temaAtual].cores[1]) || '#0e7a5f';
+  const gold = corGold || (TEMAS[temaAtual].cores[2]) || '#eab14a';
+  const accDark = corShade(acc,-0.22);
   const cr = contraste('#ffffff', acc);
   const ok = cr >= 3.2;
   /* claro/escuro do preview vem do FUNDO escolhido (ou do tema) — sem toggle separado */
   const bgRef = corBg || TEMAS[temaAtual].cores[0] || '#ffffff';
   const d = _lum(bgRef) < 0.42;
-  const cardBg = corBg || (d?'#0c1424':'var(--branco)');
-  const cardBord = d?'#2a3340':'var(--borda)';
-  const innerBg = d ? (corBg?corMix(corBg,'#ffffff',0.10):'#111c33') : 'var(--branco)';
-  const bord = d?'#2a3340':'var(--borda)', mute=d?'#9fb0c8':'var(--cinza)';
+  const cardBg = corBg || (d?'#0c1424':'#ffffff');
+  const cardBord = d?'#2a3340':'#e5e7eb';
+  const innerBg = d ? (corBg?corMix(corBg,'#ffffff',0.10):'#111c33') : '#ffffff';
+  const bord = d?'#2a3340':'#e5e7eb', mute=d?'#9fb0c8':'#6b7280';
+  const ink = d?'#e6ecf5':'#1f2937';
+  const accSoft = d ? corMix(acc,'#ffffff',0.55) : accDark;
+  const trilha = d?'#22304a':'#e6e9ee';
   return `<div class="wl-card" style="background:${cardBg}; border-color:${cardBord}">
-    ${marcaHTML('preview', d)}
-    <div style="margin-top:10px; border:1px solid ${bord}; border-radius:10px; overflow:hidden; text-align:left">
-      <div style="background:var(--verde); color:#fff; padding:7px 12px; font-weight:700; font-size:.8rem">${COND.nome}</div>
-      <div style="padding:8px 12px; background:${innerBg}; display:flex; justify-content:space-between; align-items:center; gap:8px">
-        <button class="btn principal" style="padding:7px 14px; font-size:.82rem; flex:0 0 auto; width:auto">Ação principal</button>
-        <span class="chip vermelho" style="font-size:.68rem">6 atrasados</span>
+    ${marcaHTML('preview', d, acc, gold)}
+    <div style="margin-top:10px; border:1px solid ${bord}; border-radius:12px; overflow:hidden; text-align:left">
+      <div style="background:${acc}; color:#fff; padding:8px 12px; font-weight:700; font-size:.82rem; display:flex; justify-content:space-between; align-items:center">${COND.nome}<span aria-hidden="true">🔔</span></div>
+      <div style="padding:10px 12px; background:${innerBg}">
+        <div style="border:1px solid ${bord}; border-radius:9px; padding:8px 10px; background:${d?'transparent':'#ffffff'}">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:.76rem; font-weight:700; color:${ink}">Arrecadação de junho<span style="color:${accSoft}">90%</span></div>
+          <div style="margin-top:6px; height:7px; border-radius:99px; background:${trilha}; overflow:hidden"><div style="width:90%; height:100%; background:${acc}"></div></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:9px">
+          <button class="btn principal" style="padding:7px 14px; font-size:.82rem; flex:0 0 auto; width:auto; background:${acc}; border-color:${acc}">Ação principal</button>
+          <span class="chip vermelho" style="font-size:.68rem">6 em atraso</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:9px">
+          <span style="font-size:.78rem; font-weight:700; color:${accSoft}">Ver balancete ›</span>
+          <span class="chip verde" style="font-size:.68rem">contas em dia</span>
+        </div>
+      </div>
+      <div style="display:flex; border-top:1px solid ${bord}; background:${cardBg}">
+        ${[['Início',true],['Faturamento',false],['Avisos',false]].map(([t,on])=>`<div style="flex:1; text-align:center; padding:7px 2px; font-size:.66rem; font-weight:${on?'700':'500'}; color:${on?acc:mute}">${t}</div>`).join('')}
       </div>
     </div>
-    <div style="margin-top:8px; font-size:.74rem; font-weight:700; color:${ok?(d?'#6fe0b8':'var(--verde-escuro)'):(d?'#ff9b9b':'var(--vermelho)')}">
+    <div style="margin-top:8px; font-size:.74rem; font-weight:700; color:${ok?(d?'#6fe0b8':accDark):(d?'#ff9b9b':'#c0392b')}">
       ${ok?`Contraste do texto: OK (${cr.toFixed(1)}:1)`:`Contraste baixo (${cr.toFixed(1)}:1) — escureça a cor de destaque pro texto branco ficar legível`}
     </div>
-    <div style="margin-top:4px; font-size:.72rem; color:${mute}">As cores de status (atrasado, alerta) ficam fixas — a marca não muda o significado.</div>
+    <div style="margin-top:4px; font-size:.72rem; color:${mute}">As cores de status (atrasado, em dia, alerta) ficam fixas — a marca muda a aparência, nunca o significado.</div>
   </div>`;
 }
 function logoSlotHTML(key,label,val){
@@ -871,7 +894,7 @@ function escolherTema(){
   const goldNow=(corGold||TEMAS[temaAtual].cores[2]||'#eab14a');
   const isAdm = perfil==='administradora' || !!admContexto;
   abrirModal(`<h3>${tIco('paleta')}Marca & cores · white-label</h3>
-    <div class="sub" style="margin-bottom:12px">Deixe o app com a cara do shopping (ou da administradora) — tudo aplica na hora.</div>
+    <div class="sub" style="margin-bottom:12px">Deixe o app com a cara do shopping (ou da administradora). As mudanças aparecem <b>no preview</b> — toque em <b>Pronto</b> para aplicar no app.</div>
     <div id="wl-preview" style="position:sticky; top:-4px; z-index:4; background:var(--branco); padding:4px 0 8px">${marcaBar()}</div>
 
     <div class="sub" style="font-weight:700; margin:16px 0 6px">Marca exibida</div>
@@ -892,7 +915,7 @@ function escolherTema(){
     <div class="sub" style="font-weight:700; margin:16px 0 6px">Assistente (IA)</div>
     <input id="wl-assist" value="${(nomeAssist||'Gi').replace(/"/g,'&quot;')}" oninput="nomeAssist=this.value.trim()||'Gi';wlRefresh()" placeholder="Nome do assistente — padrão: ${nomeAssist}">
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px">
-      <button class="chip cinza" style="border:none" onclick="fecharModal();irPara('fontesEdi')">${tIco('robo')}Treinar / ver fontes ›</button>
+      <button class="chip cinza" style="border:none" onclick="wlAplicar();irPara('fontesEdi')">${tIco('robo')}Treinar / ver fontes ›</button>
     </div>
 
     <div class="sub" style="font-weight:700; margin:18px 0 2px">Tema personalizado <span style="color:var(--cinza); font-weight:400">· 3 cores</span></div>
@@ -900,34 +923,34 @@ function escolherTema(){
 
     <div class="sub" style="font-weight:700; margin:8px 0 6px">1 · Fundo <span style="color:var(--cinza); font-weight:400">(base do app)</span></div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-      <input id="wl-color-bg" type="color" class="wl-color" value="${bgNow}" oninput="corBg=this.value;aplicarTema();wlRefresh();wlSyncHex()">
+      <input id="wl-color-bg" type="color" class="wl-color" value="${bgNow}" oninput="corBg=this.value;wlRefresh();wlSyncHex()">
       <input id="wl-hex0" value="${bgNow.toUpperCase()}" maxlength="7" spellcheck="false" style="width:96px; font-family:monospace; text-transform:uppercase" oninput="wlHexBg(this.value)" aria-label="código hex do fundo">
-      ${bgs.map(c=>`<button class="wl-swatch${corBg&&corBg.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corBg='${c}';aplicarTema();wlRefresh();wlSyncHex()" aria-label="fundo ${c}"></button>`).join('')}
-      <button class="chip cinza" style="border:none; padding:7px 10px" title="Fundo: voltar ao padrão do tema" onclick="corBg=null;aplicarTema();wlRefresh();wlSyncHex()">↺</button>
+      ${bgs.map(c=>`<button class="wl-swatch${corBg&&corBg.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corBg='${c}';wlRefresh();wlSyncHex()" aria-label="fundo ${c}"></button>`).join('')}
+      <button class="chip cinza" style="border:none; padding:7px 10px" title="Fundo: voltar ao padrão do tema" onclick="corBg=null;wlRefresh();wlSyncHex()">↺</button>
     </div>
 
     <div class="sub" style="font-weight:700; margin:14px 0 6px">2 · Destaque <span style="color:var(--cinza); font-weight:400">(botões, cabeçalho, links)</span></div>
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-      <input id="wl-color-acc" type="color" class="wl-color" value="${(corCustom||accNow)}" oninput="corCustom=this.value;aplicarTema();wlRefresh();wlSyncHex()">
+      <input id="wl-color-acc" type="color" class="wl-color" value="${(corCustom||accNow)}" oninput="corCustom=this.value;wlRefresh();wlSyncHex()">
       <input id="wl-hex" value="${accNow.toUpperCase()}" maxlength="7" spellcheck="false" style="width:96px; font-family:monospace; text-transform:uppercase" oninput="wlHex(this.value)" aria-label="código hex da cor de destaque">
-      ${swatches.map(c=>`<button class="wl-swatch${corCustom&&corCustom.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corCustom='${c}';aplicarTema();wlRefresh();wlSyncHex()" aria-label="cor ${c}"></button>`).join('')}
-      <button class="chip cinza" style="border:none; padding:7px 10px" title="Destaque: voltar ao padrão do tema" onclick="corCustom=null;aplicarTema();wlRefresh();wlSyncHex()">↺</button>
+      ${swatches.map(c=>`<button class="wl-swatch${corCustom&&corCustom.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corCustom='${c}';wlRefresh();wlSyncHex()" aria-label="cor ${c}"></button>`).join('')}
+      <button class="chip cinza" style="border:none; padding:7px 10px" title="Destaque: voltar ao padrão do tema" onclick="corCustom=null;wlRefresh();wlSyncHex()">↺</button>
     </div>
 
     <div class="sub" style="font-weight:700; margin:14px 0 6px">3 · Detalhe <span style="color:var(--cinza); font-weight:400">(dourado do logo Giro)</span></div>
-    ${marcaModo!=='viva'?`<div class="sub" style="margin:-2px 0 6px; color:var(--cinza)">Hoje o detalhe aparece no <b>logo Giro</b> (telhado e o "va"). Você está usando ${marcaModo==='logo'?'logo próprio':'o nome do shopping'} — veja o efeito na casinha ao lado.</div>`:''}
+    ${marcaModo!=='viva'?`<div class="sub" style="margin:-2px 0 6px; color:var(--cinza)">Hoje o detalhe aparece no <b>logo Giro</b> (a seta do giro e a sacola). Você está usando ${marcaModo==='logo'?'logo próprio':'o nome do shopping'} — veja o efeito na marca ao lado.</div>`:''}
     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-      <svg viewBox="0 0 100 100" style="width:32px; height:32px; flex:0 0 auto" aria-hidden="true"><path d="M50 12 L86 40 V86 a4 4 0 0 1-4 4 H18 a4 4 0 0 1-4-4 V40 Z" fill="var(--verde)"/><path d="M50 12 L86 40 H14 Z" fill="var(--gold)"/><circle cx="50" cy="64" r="11" fill="#fff"/></svg>
-      <input id="wl-color-gold" type="color" class="wl-color" value="${goldNow}" oninput="corGold=this.value;aplicarTema();wlRefresh();wlSyncHex()">
+      <svg viewBox="0 0 100 100" style="width:32px; height:32px; flex:0 0 auto" aria-hidden="true"><path d="M55 14.4 A36 36 0 1 1 45 14.4" fill="none" stroke="var(--verde)" stroke-width="9" stroke-linecap="round"/><path d="M45 8 L45 20.8 L34.5 14.4 Z" fill="var(--gold)"/><rect x="36" y="47" width="28" height="26" rx="6" fill="var(--gold)"/><path d="M43.5 47 v-4 a6.5 6.5 0 0 1 13 0 v4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+      <input id="wl-color-gold" type="color" class="wl-color" value="${goldNow}" oninput="corGold=this.value;wlRefresh();wlSyncHex()">
       <input id="wl-hex2" value="${goldNow.toUpperCase()}" maxlength="7" spellcheck="false" style="width:96px; font-family:monospace; text-transform:uppercase" oninput="wlHexGold(this.value)" aria-label="código hex da cor secundária">
-      ${golds.map(c=>`<button class="wl-swatch${corGold&&corGold.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corGold='${c}';aplicarTema();wlRefresh();wlSyncHex()" aria-label="cor ${c}"></button>`).join('')}
-      <button class="chip cinza" style="border:none; padding:7px 10px" title="Detalhe: voltar ao padrão do tema" onclick="corGold=null;aplicarTema();wlRefresh();wlSyncHex()">↺</button>
+      ${golds.map(c=>`<button class="wl-swatch${corGold&&corGold.toLowerCase()===c?' on':''}" style="background:${c}" onclick="corGold='${c}';wlRefresh();wlSyncHex()" aria-label="cor ${c}"></button>`).join('')}
+      <button class="chip cinza" style="border:none; padding:7px 10px" title="Detalhe: voltar ao padrão do tema" onclick="corGold=null;wlRefresh();wlSyncHex()">↺</button>
     </div>
 
     <div class="sub" style="font-weight:700; margin:18px 0 6px">Partir de um exemplo <span style="color:var(--cinza); font-weight:400">(preenche as 3 cores)</span></div>
     <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px">
       ${Object.entries(TEMAS).map(([k,t])=>{const atual=k===temaAtual&&!corBg&&!corCustom&&!corGold; const curto={caderno:'Caderno',classico:'Clássico',condox:'CondoX',premium:'Premium'}[k]||t.nome.split('')[0];
-        return `<button class="item" style="flex:0 0 auto; width:auto; min-width:92px; text-align:center; padding:8px 10px; margin:0${atual?'; border-color:var(--verde)':''}" title="${esc(t.desc)}" onclick="temaAtual='${k}';corBg=null;corCustom=null;corGold=null;aplicarTema();atualizar();escolherTema()">
+        return `<button class="item" style="flex:0 0 auto; width:auto; min-width:92px; text-align:center; padding:8px 10px; margin:0${atual?'; border-color:var(--verde)':''}" title="${esc(t.desc)}" onclick="temaAtual='${k}';corBg=null;corCustom=null;corGold=null;escolherTema()">
         <div style="display:flex; gap:3px; justify-content:center; margin-bottom:5px">${t.cores.map(c=>`<span style="width:14px; height:14px; border-radius:50%; background:${c}; border:1px solid rgba(127,127,127,.4)"></span>`).join('')}</div>
         <div style="font-size:.74rem; font-weight:700; color:var(--texto); white-space:nowrap">${curto}</div>
         ${atual?'<div style="font-size:.62rem; color:var(--verde-escuro); font-weight:700; margin-top:2px">em uso</div>':''}
@@ -955,27 +978,31 @@ function escolherTema(){
 
     <div class="botoes" style="margin-top:14px">
       <button class="btn claro" onclick="resetWL()">↺ Restaurar tudo</button>
-      <button class="btn principal" onclick="fecharModal();atualizar()">Pronto</button>
+      <button class="btn principal" onclick="wlAplicar()">Pronto — aplicar no app</button>
     </div>`);
+  /* fechar pelo ✕ também aplica o rascunho escolhido (o preview é o que vale) */
+  const _x=document.querySelector('#modal .fechar-x'); if(_x) _x.setAttribute('onclick','wlAplicar()');
 }
+/* commit: aplica o rascunho (globais já refletem as escolhas) e repinta o app */
+function wlAplicar(){ aplicarTema(); fecharModal(); atualizar(); }
 function wlSetModo(m){ marcaModo=m;
   document.querySelectorAll('#wl-modo button').forEach(b=>{const on=b.dataset.m===m; b.classList.toggle('verde',on); b.classList.toggle('cinza',!on);});
   const lw=$('#wl-logo-wrap'); if(lw) lw.style.display=(m==='logo')?'block':'none';
   if(m==='logo' && !logoWL) toast('Envie o logo do shopping (PNG/SVG).');
-  aplicarTema(); wlRefresh();
+  wlRefresh();
 }
 function wlUpload(e,key){ const f=e.target.files&&e.target.files[0]; if(!f) return;
   if(f.size>2*1024*1024){ toast('Logo muito grande (máx 2 MB).'); return; }
-  const rd=new FileReader(); rd.onload=()=>{ if(key==='escuro') logoWLDark=rd.result; else logoWL=rd.result; marcaModo='logo'; aplicarTema(); escolherTema(); toast(`Logo (fundo ${key||'claro'}) aplicado.`); }; rd.readAsDataURL(f);
+  const rd=new FileReader(); rd.onload=()=>{ if(key==='escuro') logoWLDark=rd.result; else logoWL=rd.result; marcaModo='logo'; escolherTema(); toast(`Logo (fundo ${key||'claro'}) carregado — veja no preview.`); }; rd.readAsDataURL(f);
 }
-function wlRemoveLogo(key){ if(key==='escuro') logoWLDark=null; else logoWL=null; if(!logoWL&&!logoWLDark) marcaModo='viva'; aplicarTema(); escolherTema(); }
+function wlRemoveLogo(key){ if(key==='escuro') logoWLDark=null; else logoWL=null; if(!logoWL&&!logoWLDark) marcaModo='viva'; escolherTema(); }
 /* logo Giro como imagem de demonstração — pra testar os slots sem precisar enviar arquivo */
 function vivaLogoSVG(dark){
   const st=dark?'#ffffff':'#0E7490', ac='#FF6B4A', hd=dark?'#0E7490':'#ffffff', w1=dark?'#ffffff':'#0E7490';
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><g transform="translate(2,8) scale(0.82)"><path d="M53 22 A28 28 0 1 1 45 22.6" fill="none" stroke="${st}" stroke-width="7.5" stroke-linecap="round"/><path d="M45 17 L45 27 L36.5 22 Z" fill="${ac}"/><rect x="39" y="47" width="22" height="21" rx="5" fill="${ac}"/><path d="M45 47 v-3 a5 5 0 0 1 10 0 v3" fill="none" stroke="${hd}" stroke-width="2.6" stroke-linecap="round"/></g><text x="90" y="62" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="46" fill="${w1}">Giro</text></svg>`;
 }
 function vivaLogoDataURL(dark){ return 'data:image/svg+xml;utf8,'+encodeURIComponent(vivaLogoSVG(dark)); }
-function wlUsarGiro(key){ if(key==='escuro') logoWLDark=vivaLogoDataURL(true); else logoWL=vivaLogoDataURL(false); marcaModo='logo'; aplicarTema(); escolherTema(); }
+function wlUsarGiro(key){ if(key==='escuro') logoWLDark=vivaLogoDataURL(true); else logoWL=vivaLogoDataURL(false); marcaModo='logo'; escolherTema(); }
 function wlLoginBg(e){ const f=e.target.files&&e.target.files[0]; if(!f) return; if(f.size>3*1024*1024){ toast('Imagem muito grande (máx 3 MB).'); return; } const rd=new FileReader(); rd.onload=()=>{ loginBg=rd.result; escolherTema(); toast('Imagem de fundo do login aplicada.'); }; rd.readAsDataURL(f); }
 function wlSyncHex(){
   const bg=(corBg||TEMAS[temaAtual].cores[0]||'#ffffff').toUpperCase();
@@ -988,9 +1015,9 @@ function wlSyncHex(){
   const ca=$('#wl-color-acc'); if(ca) ca.value=acc;
   const cg=$('#wl-color-gold'); if(cg) cg.value=g;
 }
-function wlHexBg(v){ if(ehHex(v)){ corBg=normHex(v).toLowerCase(); aplicarTema(); wlRefresh(); const cb=$('#wl-color-bg'); if(cb) cb.value=normHex(v).toUpperCase(); } }
-function wlHex(v){ if(ehHex(v)){ corCustom=normHex(v).toLowerCase(); aplicarTema(); wlRefresh(); const ca=$('#wl-color-acc'); if(ca) ca.value=normHex(v).toUpperCase(); } }
-function wlHexGold(v){ if(ehHex(v)){ corGold=normHex(v).toLowerCase(); aplicarTema(); wlRefresh(); const cg=$('#wl-color-gold'); if(cg) cg.value=normHex(v).toUpperCase(); } }
+function wlHexBg(v){ if(ehHex(v)){ corBg=normHex(v).toLowerCase(); wlRefresh(); const cb=$('#wl-color-bg'); if(cb) cb.value=normHex(v).toUpperCase(); } }
+function wlHex(v){ if(ehHex(v)){ corCustom=normHex(v).toLowerCase(); wlRefresh(); const ca=$('#wl-color-acc'); if(ca) ca.value=normHex(v).toUpperCase(); } }
+function wlHexGold(v){ if(ehHex(v)){ corGold=normHex(v).toLowerCase(); wlRefresh(); const cg=$('#wl-color-gold'); if(cg) cg.value=normHex(v).toUpperCase(); } }
 function resetWL(){ corBg=null; corCustom=null; corGold=null; marcaModo='viva'; logoWL=null; logoWLDark=null; brandLock=false; loginBg=null; loginMsg=''; loginSuporte=''; aplicarTema(); escolherTema(); toast('Marca e cores restauradas ao padrão.'); }
 
 /* ===== MENU DA DEMONSTRAÇÃO (⚙) =====
