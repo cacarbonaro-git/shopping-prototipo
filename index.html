@@ -384,6 +384,28 @@
     #app, #menu{max-width:720px}
     #modal{max-width:720px}
   }
+
+  /* ===== alternador Lista/Quadro (mesmo padrão das abas) ===== */
+  .vswitch{display:flex; gap:6px; background:var(--cinza-claro); border-radius:12px; padding:4px; margin:0 0 12px}
+  .vswitch button{flex:1; background:none; border:none; border-radius:9px; padding:9px 6px; font-size:.85rem; font-weight:700; color:var(--cinza); cursor:pointer}
+  .vswitch button.on{background:var(--branco); color:var(--verde-escuro); box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+  /* ===== quadro (kanban) de manutenção — some por padrão scroll no mobile ===== */
+  .mboard{display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity}
+  .mcol{flex:0 0 82%; scroll-snap-align:start; background:var(--cinza-claro); border-radius:16px; padding:11px 11px 6px; min-width:0}
+  .mcol-h{display:flex; align-items:center; gap:8px; font-weight:800; font-size:.92rem; margin-bottom:9px; padding:0 2px}
+  .mdot{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+  .mdot.vermelho{background:var(--vermelho)} .mdot.laranja{background:var(--laranja)} .mdot.ok{background:var(--ok)}
+  .mcount{margin-left:auto; background:var(--branco); color:var(--cinza); border-radius:99px; padding:1px 10px; font-size:.74rem; font-weight:800}
+  .mcard{margin:0 0 9px}
+  .mvazio{color:var(--cinza); font-size:.83rem; padding:8px 4px 12px; text-align:center}
+  /* PC: app largo + colunas lado a lado ocupando a largura, sem scroll */
+  @media (min-width:900px){
+    body.vista-quadro #app, body.vista-quadro #menu{max-width:1160px}
+    body.vista-quadro #modal{max-width:720px}
+    .vista-quadro .mboard{overflow-x:visible}
+    .vista-quadro .mboard .mcol{flex:1 1 0}
+  }
 </style>
 </head>
 <body class="">
@@ -405,7 +427,7 @@
 <script>
 'use strict';
 /* Versão do protótipo — aparece na barra superior. Atualize a cada release. */
-const VERSAO='Giro v1.3';
+const VERSAO='Giro v1.5';
 /* ============================================================
    Giro — protótipo navegável (sem servidor, dados em memória)
    Shopping fictício: Shopping Pátio Central, Osasco/SP, 60 lojas
@@ -1192,6 +1214,8 @@ function irPara(tela){
   document.querySelectorAll('#menu button').forEach(b=>b.classList.remove('on'));
   const mb=$('#mb-'+tela); if(mb) mb.classList.add('on');
   $('#app').innerHTML = TELAS[tela]();
+  /* quadro de manutenção: só ele alarga o app no PC — sai da classe ao trocar de tela */
+  document.body.classList.toggle('vista-quadro', tela==='manutencao' && vistaManut==='quadro');
   /* ${nomeAssist} fora da home: a home traz a barra "Peça ao ${nomeAssist}" no corpo (ali a intenção
      é "o que eu faço?"). Nas telas de tarefa/lista o topo é do conteúdo — o assistente vira um
      BOTÃO FLUTUANTE (não ocupa espaço) que abre o chat do ${nomeAssist}. */
@@ -1480,6 +1504,7 @@ function confirmaBaixa(ix){
 }
 
 let abaManuSind='contratuais';
+let vistaManut='lista'; /* 'lista' | 'quadro' (kanban por situação; largura total no PC) */
 let filtroManuStatus='Todas'; /* deep-link/filtro de situação: 'Todas'|'Vencidas'|'Vencendo'|'A conferir'|'Em dia' */
 TELAS.manutencao = () => {
   const ordem={vencida:0, aprovacao:1, breve:2, ok:3};
@@ -1515,6 +1540,30 @@ TELAS.manutencao = () => {
     ${['Vencidas','Vencendo','A conferir','Em dia'].filter(k=>stCnt[k]>0).map(k=>chipSt(k)).join('')}
     ${filtroManuStatus!=='Todas'?`<button class="chip cinza" style="border:none" onclick="filtroManuStatus='Todas';atualizar()">✕ limpar</button>`:''}
   </div>`;
+  /* ---- Quadro (kanban): colunas = situação legal; ignora o filtro de situação (as colunas SÃO o filtro) ---- */
+  const todosAba=todos.filter(x=> abaManuSind==='contratuais' ? x.m.empresa : !x.m.empresa);
+  const cardQ=(m,ix)=>{
+    const dd=proxManu(m); let info;
+    if(dd){ const str=dd.toLocaleDateString('pt-BR'); const venceu=dd<hoje;
+      info = venceu ? `<b style="color:var(--vermelho)">venceu ${str}</b>`
+           : (m.status==='breve' ? `<b style="color:var(--laranja)">vence ${str}</b>` : `vence ${str}`);
+    } else info=`última: ${m.ultima}`;
+    return `<button class="item mcard" style="width:100%; text-align:left; display:block${m.status==='aprovacao'?'; border-color:var(--laranja)':''}" onclick="verManutencao(${ix})">
+      <div class="nome" style="font-size:.88rem; line-height:1.25">${nomeManu(m)}</div>
+      <div class="sub" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:6px"><span class="chip cinza" style="border:none; padding:2px 8px; font-size:.68rem; font-weight:700">${escopoManu(m)}</span><span style="font-size:.72rem">${m.per}</span></div>
+      <div class="sub" style="margin-top:4px; font-size:.73rem">${info}</div>
+    </button>`;};
+  const cols=[['Vencidas','vencida','vermelho'],['A conferir','aprovacao','laranja'],['Vencendo','breve','laranja'],['Em dia','ok','ok']];
+  const quadro=`<div class="mboard">${cols.map(([lbl,st,cor])=>{
+    const its=todosAba.filter(x=>x.m.status===st);
+    return `<div class="mcol"><div class="mcol-h"><span class="mdot ${cor}"></span>${lbl}<span class="mcount">${its.length}</span></div>
+      <div class="mcol-b">${its.length?its.map(x=>cardQ(x.m,x.ix)).join(''):'<div class="mvazio">nada aqui</div>'}</div></div>`;
+  }).join('')}</div>
+  <div class="sub" style="margin:10px 0 2px">As colunas são a <b>situação legal</b> de cada item. Toque num card para ver o prazo, o laudo e agir — as mudanças de status (aprovar laudo, registrar execução) acontecem no detalhe.</div>`;
+  const toggle=`<div class="vswitch" role="tablist" aria-label="Modo de visualização">
+    <button role="tab" aria-selected="${vistaManut==='lista'}" class="${vistaManut==='lista'?'on':''}" onclick="setVistaManut('lista')">☰ Lista</button>
+    <button role="tab" aria-selected="${vistaManut==='quadro'}" class="${vistaManut==='quadro'?'on':''}" onclick="setVistaManut('quadro')">▦ Quadro</button>
+  </div>`;
   return `<div class="tela on">
   <div class="topo"><h1>${tIco("chave")}Manutenção preventiva</h1><p>Prazos legais do shopping sob controle</p></div>
   ${filtroPisoHtml()}
@@ -1522,15 +1571,17 @@ TELAS.manutencao = () => {
     <button class="${abaManuSind==='contratuais'?'on':''}" onclick="abaManuSind='contratuais';atualizar()">Contratuais (${contratuais.length})${pend?` · ${pend} p/ aprovar`:''}</button>
     <button class="${abaManuSind==='internas'?'on':''}" onclick="abaManuSind='internas';atualizar()">Internas (${internas.length})</button>
   </div>
-  ${resumo}
   <div class="sub" style="margin:-4px 0 12px">${abaManuSind==='contratuais'
     ?'Itens de empresa certificada: o facilities arquiva o laudo e <b>você</b> aprova a conclusão — é onde sua ação é necessária.'
     :'Verificações internas do facilities — aqui é só para sua ciência: ele executa e registra direto, sem aprovação.'}</div>
+  ${toggle}
+  ${vistaManut==='quadro' ? quadro : `${resumo}
   ${lista.length?'':`<div style="margin:2px 0 12px">${vazio('check','Nada nesta situação','Troque o filtro de situação ou de piso para ver os demais itens.')}</div>`}
-  ${lista.map(x=>linha(x.m,x.ix)).join('')}
+  ${lista.map(x=>linha(x.m,x.ix)).join('')}`}
   <div class="aviso-lgpd">Itens obrigatórios pré-cadastrados (NBR 5674 e normas locais). As periodicidades são editáveis — a exigência exata varia por município.</div>
 </div>`;
 };
+function setVistaManut(v){ vistaManut=v; atualizar(); }
 /* detalhe da manutenção (lado superintendente): contexto completo + ações */
 function verManutencao(ix){
   const m=manutencoes[ix]; if(!m) return;
@@ -3154,15 +3205,15 @@ function ediTestar(){
 let assembleia={
   data:'25/06/2026, 19h30 (2ª chamada 20h)', local:'Espaço Promocional',
   pauta:[
-    {t:'Prestação de contas 2025/2026', q:'maioria simples dos presentes'},
-    {t:'Eleição do conselho da associação', q:'maioria dos presentes'},
-    {t:'Orçamento 2026/2027 e valor dos encargos', q:'maioria simples dos presentes'},
-    {t:'Cobertura do bicicletário (obra útil)', q:'maioria absoluta — 31 lojas (o estatuto da associação e a escritura de normas)'},
+    {t:'Prestação de contas 2025/2026', q:'maioria simples dos presentes', modo:'dia', doc:'Balancete 2025/2026 + parecer do conselho', nota:'contas se aprovam após o debate (pode caber ressalva)'},
+    {t:'Eleição do conselho da associação', q:'maioria dos presentes', modo:'dia', doc:'Edital de candidatura', nota:'candidatos podem se apresentar na assembleia'},
+    {t:'Orçamento 2026/2027 e valor dos encargos', q:'maioria simples dos presentes', modo:'antecipado', doc:'Proposta orçamentária 2026/2027'},
+    {t:'Cobertura do bicicletário (obra útil)', q:'maioria absoluta — 31 lojas (o estatuto da associação e a escritura de normas)', modo:'antecipado', doc:'Projeto e orçamento da obra'},
   ],
   convocada:false, presentes:[], canais:{zap:false, app:false, print:false, painel:false},
   modoVivo:false, gravando:false, presentesN:34, votos:[], offPauta:false, ataGerada:false,
   votoJanela:{abre:'08/06', fecha:'25/06 19h30', modo:'híbrido', forcar:null}, // forcar: null | 'abrir' | 'fechar' (hoje da demo = 10/06)
-  votoRemoto:{ 'A-110':{0:'sim',1:'sim',2:'sim',3:'nao'}, 'B-408':{0:'sim',1:'sim',2:'nao',3:'sim'}, 'A-204':{0:'abst',1:'sim',2:'sim',3:'sim'} },
+  votoRemoto:{ 'A-110':{2:'sim',3:'nao'}, 'B-408':{2:'sim',3:'sim'}, 'A-204':{2:'sim',3:'abst'} }, // só itens 'antecipado' (0 e 1 são deliberados no dia)
   procuracoes:{ 'B-605':'A-204' },
 };
 let abaAsm='convocacao';
@@ -3369,17 +3420,23 @@ function renderVotacao(){
   const a=assembleia, meu=votoRemotoTmp;
   abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('checklist')}Votar — Assembleia 25/06</h3>
     <div class="item" style="border-color:var(--verde); background:var(--verde-claro); padding:10px 13px"><div class="sub" style="margin:0">${tIco('check')}Votação <b>aberta até ${assembleia.votoJanela.fecha}</b> · modo ${assembleia.votoJanela.modo}. Você pode <b>alterar seu voto</b> até lá; em itens polêmicos, dá pra rever depois do debate.</div></div>
-    <div class="sub" style="margin:10px 0">Vote em cada item à distância. O voto remoto <b>vale como presença</b> e entra na apuração com peso por coeficiente de rateio.</div>
-    ${a.pauta.map((p,i)=>{const e=meu[i];
-      return `<div class="item"><div class="nome" style="font-size:.9rem">${i+1}. ${p.t}</div><div class="sub" style="margin:2px 0 0">quórum: ${p.q}</div>
-        <div style="display:flex; gap:6px; margin-top:8px">
-          ${[['sim','A favor','verde'],['nao','Contra','vermelho'],['abst','Abstenção','cinza']].map(([k,lbl,cor])=>`<button class="chip ${e===k?cor:'cinza'}" style="border:none; flex:1" onclick="setVotoRemoto(${i},'${k}')">${lbl}</button>`).join('')}
-        </div></div>`;}).join('')}
+    <div class="sub" style="margin:10px 0">Vote nos itens <b>abertos ao voto antecipado</b>. Os demais são deliberados <b>na assembleia</b> (após o debate) — mas os documentos já ficam disponíveis pra você chegar informado. O voto remoto <b>vale como presença</b> e entra na apuração com peso por coeficiente de rateio.</div>
+    ${a.pauta.map((p,i)=>{const e=meu[i]; const dia=p.modo==='dia';
+      return `<div class="item">
+        <div class="linha1" style="align-items:flex-start; gap:8px"><span class="nome" style="font-size:.9rem">${i+1}. ${p.t}</span><span class="chip ${dia?'laranja':'verde'}" style="flex:0 0 auto">${dia?'voto no dia':'voto antecipado'}</span></div>
+        <div class="sub" style="margin:2px 0 0">quórum: ${p.q}</div>
+        ${p.doc?`<div class="chip cinza" style="margin-top:8px; display:inline-flex; align-items:center; gap:6px; border:none; font-weight:700">${clip()}${p.doc}</div>`:''}
+        ${dia
+          ? `<div class="sub" style="margin-top:8px; display:flex; gap:6px; align-items:flex-start">${tIco('checklist')}<span>Deliberado na assembleia (após o debate)${p.nota?' — '+p.nota:''}. Compareça ou dê procuração.</span></div>`
+          : `<div style="display:flex; gap:6px; margin-top:8px">
+              ${[['sim','A favor','verde'],['nao','Contra','vermelho'],['abst','Abstenção','cinza']].map(([k,lbl,cor])=>`<button class="chip ${e===k?cor:'cinza'}" style="border:none; flex:1" onclick="setVotoRemoto(${i},'${k}')">${lbl}</button>`).join('')}
+            </div>`}
+      </div>`;}).join('')}
     <button class="btn principal btn-grande" onclick="salvarVotoRemoto()">${Object.keys(assembleia.votoRemoto[MORADOR.un]||{}).length?'Atualizar meu voto':'Registrar meu voto'}</button>
     <div class="botoes"><button class="btn claro" onclick="darProcuracao()"><span class="ico-in">${ico('pessoas')}</span> Não vou — dar procuração</button></div>
-    <div class="aviso-lgpd">Seu voto é individual e sigiloso na apuração agregada. A contrato de locação limita quantas procurações cada pessoa pode levar à assembleia.</div>`);
+    <div class="aviso-lgpd">Seu voto é individual e sigiloso na apuração agregada. O contrato de locação limita quantas procurações cada pessoa pode levar à assembleia.</div>`);
 }
-function setVotoRemoto(i,k){ votoRemotoTmp[i]=k; renderVotacao(); }
+function setVotoRemoto(i,k){ if((assembleia.pauta[i]||{}).modo==='dia') return; votoRemotoTmp[i]=k; renderVotacao(); }
 function salvarVotoRemoto(){
   if(!Object.keys(votoRemotoTmp).length){ toast('Escolha sua opção em pelo menos um item.'); return; }
   assembleia.votoRemoto[MORADOR.un]={...votoRemotoTmp};
