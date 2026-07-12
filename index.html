@@ -405,7 +405,7 @@
 <script>
 'use strict';
 /* Versão do protótipo — aparece na barra superior. Atualize a cada release. */
-const VERSAO='Giro v1.0';
+const VERSAO='Giro v1.3';
 /* ============================================================
    Giro — protótipo navegável (sem servidor, dados em memória)
    Shopping fictício: Shopping Pátio Central, Osasco/SP, 60 lojas
@@ -554,7 +554,9 @@ let faturamentos = [
 ];
 const alugPercent = f => Math.max(f.minimo, Math.round(f.valor*f.perc));
 /* ===== MAPA DE OCUPAÇÃO & LEASING (planta por piso: lojas + merchandising) ===== */
-let mapaPiso='L1';
+let mapaPiso='L1'; let mapaView='esquema'; let plantaOn=false;
+let mapaMapear=false, pinArmado=null, pinDrag=null;
+let pinPos={'A-101':{x:95,y:82},'B-115':{x:560,y:300}};
 const mapaPisos={
  L1:{
   norte:[{cod:'A-101',nome:'Riachuelo',ramo:'Loja âncora',area:1200,coef:8.5,status:'operando',titular:'Riachuelo'},
@@ -2246,19 +2248,70 @@ TELAS.mapa=()=>{
      <div class="card"><div class="num">${st.op}</div><div class="lbl">operando</div></div>
      <div class="card aten"><div class="num">${st.vg}</div><div class="lbl">vagas p/ locar</div></div>
    </div>
-   <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:12px">
+   <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:10px">
      ${['L1','L2'].map(pi=>`<button class="chip ${mapaPiso===pi?'verde':'cinza'}" style="border:none" onclick="mapaPiso='${pi}';atualizar()">Piso ${pi}</button>`).join('')}
-     <span class="sub" style="margin:0 0 0 6px; font-size:.7rem">${mapaSwatch()}</span>
+     <span style="margin-left:auto; display:inline-flex; gap:4px">
+       <button class="chip ${mapaView==='esquema'?'verde':'cinza'}" style="border:none" onclick="mapaView='esquema';atualizar()">Esquema</button>
+       <button class="chip ${mapaView==='planta'?'verde':'cinza'}" style="border:none" onclick="mapaView='planta';atualizar()">Planta</button>
+     </span>
    </div>
+   <div style="margin-bottom:12px; font-size:.7rem">${mapaSwatch()}</div>
+   ${mapaView==='planta' ? `
+     ${plantaOn?( mapaMapear ? `<div class="sub" style="margin:0 0 6px">Toque numa loja abaixo e depois na planta para <b>posicionar o pino</b>. Já posicionado? <b>Arraste</b> pra ajustar.${pinArmado?` <span class="chip laranja" style="border:none">posicionando ${pinArmado}…</span>`:''}</div>
+       <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px">${lucChips()}</div>
+       ${plantaMapearSVG()}
+       <div class="botoes" style="margin-top:8px"><button class="btn principal" onclick="concluirMapa()">Concluir mapeamento</button></div>`
+     : `<div class="sub" style="margin:0 0 6px; display:flex; align-items:center; gap:7px; flex-wrap:wrap"><span class="chip verde">planta carregada</span> planta_${mapaPiso.toLowerCase()}.svg <button class="chip cinza" style="border:none" onclick="plantaOn=false;atualizar()">trocar planta</button></div>
+       ${plantaSVG()}
+       <div class="botoes" style="margin:8px 0"><button class="btn claro" onclick="mapaMapear=true;atualizar()">Mapear lojas na planta (posicionar pinos)</button></div>
+       <div class="aviso-lgpd">Demo: no produto você sobe a <b>planta real</b> e posiciona cada loja (um pino/área ligado à LUC). Se a planta for <b>SVG vetorial</b> com as lojas nomeadas, o casamento é automático. O status colore sozinho — os mesmos dados do cadastro.</div>`)
+     :`<div class="item" style="border:1.5px dashed var(--verde); text-align:center; padding:18px 12px; margin-bottom:8px; cursor:pointer" onclick="uploadPlanta()">
+       <div style="font-weight:800; color:var(--verde)">${clip()}Subir planta do piso ${mapaPiso}</div>
+       <div class="sub" style="margin-top:4px">PNG · JPG · SVG · PDF — a planta vira o fundo do mapa e as lojas ficam por cima, coloridas por status.</div></div>
+       <div class="aviso-lgpd">Sem planta ainda? Use a visão <b>Esquema</b> ao lado — funciona com os mesmos dados, sem depender do desenho.</div>`}
+   ` : `
    <h2>Lado Norte</h2>
    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px">${p.norte.map(box).join('')}</div>
    <div style="text-align:center; color:var(--cinza); font-size:.7rem; letter-spacing:3px; margin:2px 0 8px">&#9668;  M A L L &#183; C O R R E D O R  &#9658;</div>
    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; justify-content:center">${p.quiosques.map(qbox).join('')}</div>
    <h2>Lado Sul</h2>
    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px">${p.sul.map(box).join('')}</div>
+   `}
    <div class="aviso-lgpd">Linha cheia = loja (locação de longo prazo); tracejado = quiosque/merchandising (locação temporária). Clique num espaço para a ficha comercial e a ação de leasing. O mapa é uma camada visual sobre os mesmos dados de LUCs e espaços.</div>
   </div>`;
 };
+function uploadPlanta(){ plantaOn=true; toast('Planta do piso '+mapaPiso+' carregada (demo).'); atualizar(); }
+function plantaSVG(){
+  const p=mapaPisos[mapaPiso], W=780,H=380,pad=10;
+  const rect=(l,x,y,w,h)=>{const c=STMAP[l.status]||STMAP.operando; return `<g style="cursor:pointer" onclick="verMapaLoja('${mapaPiso}','${l.cod}')"><rect x="${x}" y="${y}" width="${w-5}" height="${h}" rx="4" fill="${c[0]}" stroke="${c[1]}" stroke-width="1.6"/><text x="${x+(w-5)/2}" y="${y+h/2-2}" text-anchor="middle" font-size="14" font-weight="800" fill="${c[1]}">${l.cod}</text><text x="${x+(w-5)/2}" y="${y+h/2+14}" text-anchor="middle" font-size="10" fill="${c[1]}">${l.status==='vaga'?'vaga':(l.nome||'').slice(0,16).replace(/&/g,'&amp;')}</text></g>`;};
+  const nW=(W-2*pad)/p.norte.length, sW=(W-2*pad)/p.sul.length; let g='';
+  p.norte.forEach((l,i)=> g+=rect(l, pad+i*nW, pad+8, nW, 104));
+  p.sul.forEach((l,i)=> g+=rect(l, pad+i*sW, H-pad-104, sW, 104));
+  g+=`<text x="${W/2}" y="${H/2+4}" text-anchor="middle" font-size="12" fill="#90a4ae" letter-spacing="4">CORREDOR / MALL</text>`;
+  p.quiosques.forEach((q,i)=>{const av=q.status==='disponivel', qx=W/2-(p.quiosques.length-1)*72/2+i*72;
+    g+=`<g style="cursor:pointer" onclick="verMapaQuiosque('${mapaPiso}','${q.cod}')"><circle cx="${qx}" cy="${H/2-30}" r="17" fill="${av?'#fdecea':'#e6f4f0'}" stroke="${av?'#c0392b':'#0e7a5f'}" stroke-width="1.6" stroke-dasharray="3 2"/><text x="${qx}" y="${H/2-26}" text-anchor="middle" font-size="9.5" font-weight="800" fill="${av?'#c0392b':'#0e7a5f'}">${q.cod}</text></g>`;});
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:auto; background:#f6fafb; border:1px solid var(--borda); border-radius:12px"><rect x="4" y="4" width="${W-8}" height="${H-8}" rx="8" fill="none" stroke="#cfd8dc" stroke-width="2"/>${g}</svg>`;
+}
+function todasLucsPiso(){ const p=mapaPisos[mapaPiso]; return [...p.norte,...p.sul]; }
+function lucChips(){ const placed=Object.keys(pinPos); return todasLucsPiso().map(l=>{const on=pinArmado===l.cod, posto=placed.includes(l.cod), c=STMAP[l.status]||STMAP.operando;
+  return `<button class="chip" style="border:1.5px solid ${c[1]}; background:${on?c[1]:c[0]}; color:${on?'#fff':c[1]}${posto?'; opacity:.5':''}" onclick="armarPin('${l.cod}')">${posto?'✓ ':''}${l.cod}</button>`;}).join(''); }
+function armarPin(cod){ pinArmado=(pinArmado===cod?null:cod); atualizar(); }
+function svgCoords(ev){ const svg=document.getElementById('planta-svg'); if(!svg||!svg.getBoundingClientRect)return{x:390,y:190}; const r=svg.getBoundingClientRect(); const vb=svg.viewBox.baseVal; return {x:Math.round((ev.clientX-r.left)/(r.width||1)*vb.width), y:Math.round((ev.clientY-r.top)/(r.height||1)*vb.height)}; }
+function plantaSvgClick(ev){ if(!pinArmado)return; const c=svgCoords(ev); pinPos[pinArmado]={x:c.x,y:c.y}; toast(pinArmado+' posicionada na planta.'); pinArmado=null; atualizar(); }
+function plantaGrab(ev,cod){ if(ev.preventDefault)ev.preventDefault(); if(ev.stopPropagation)ev.stopPropagation(); pinDrag=cod; }
+function plantaDrag(ev){ if(!pinDrag)return; const c=svgCoords(ev); pinPos[pinDrag]={x:c.x,y:c.y}; const g=document.getElementById('pin-'+pinDrag); if(g)g.setAttribute('transform','translate('+c.x+','+c.y+')'); }
+function plantaDrop(){ if(pinDrag){ pinDrag=null; atualizar(); } }
+function concluirMapa(){ mapaMapear=false; plantaOn=true; toast('Lojas mapeadas na planta.'); atualizar(); }
+function plantaMapearSVG(){
+  const W=780,H=380;
+  const pins=Object.keys(pinPos).map(cod=>{const l=todasLucsPiso().find(x=>x.cod===cod); if(!l)return''; const c=STMAP[l.status]||STMAP.operando, pos=pinPos[cod];
+    return `<g id="pin-${cod}" transform="translate(${pos.x},${pos.y})" style="cursor:grab" onpointerdown="plantaGrab(event,'${cod}')"><circle r="18" fill="${c[0]}" stroke="${c[1]}" stroke-width="2.5"/><text text-anchor="middle" y="4" font-size="10.5" font-weight="800" fill="${c[1]}">${cod}</text></g>`;}).join('');
+  return `<svg id="planta-svg" viewBox="0 0 ${W} ${H}" onclick="plantaSvgClick(event)" onpointermove="plantaDrag(event)" onpointerup="plantaDrop(event)" onpointerleave="plantaDrop(event)" style="width:100%; height:auto; background:#f6fafb; border:1px solid var(--borda); border-radius:12px; touch-action:none; cursor:${pinArmado?'crosshair':'default'}">
+    <rect x="8" y="8" width="${W-16}" height="${H-16}" rx="10" fill="#fbfdfd" stroke="#cfd8dc" stroke-width="2"/>
+    <line x1="20" y1="${H/2}" x2="${W-20}" y2="${H/2}" stroke="#e0e8ea" stroke-width="10"/>
+    <text x="${W/2}" y="${H/2+4}" text-anchor="middle" font-size="12" fill="#b0bec5" letter-spacing="3">PLANTA DO PISO ${mapaPiso} · CORREDOR</text>
+    ${pins}</svg>`;
+}
 function verMapaLoja(pi,cod){
   const p=mapaPisos[pi]; const l=[...p.norte,...p.sul].find(x=>x.cod===cod); if(!l)return;
   const c=STMAP[l.status]||STMAP.operando;
@@ -3513,7 +3566,7 @@ TELAS.rotina = () => {
   <div class="secao" id="rotina-lista">ROTINA</div>
   ${rotina.map((r,ix)=>({r,ix})).sort((a,b)=>(a.r.feito?1:0)-(b.r.feito?1:0)).map(({r,ix})=>`<div class="item ${r.feito?'feito':''}">
     <div class="linha1"><span class="nome">${r.feito?tIco('check'):''}${r.t}</span><span class="chip ${r.feito?'verde':'cinza'}">${r.freq}</span></div>
-    <div class="linha1" style="margin-top:4px; align-items:center; gap:8px"><span class="sub" style="margin:0; min-width:0">responsável: <b>${r.resp}</b>${r.leitura?` · leitura: <b>${r.leitura}</b>`:''}</span>${!r.feito?`<button class="btn claro" style="flex:0 0 auto; padding:7px 13px; font-size:13px; margin:0" onclick="marcarRotina(${ix})">${tIco('check')}Marcar feito</button>`:''}</div>
+    <div class="linha1" style="margin-top:4px; align-items:center; gap:8px"><span class="sub" style="margin:0; min-width:0">responsável: <b>${r.resp}</b>${r.leitura?` · leitura: <b>${r.leitura}</b>`:''}${r.feito?` · <span class="chip ${r.local?'verde':'laranja'}" style="border:none; font-size:.64rem">${r.local?tIco('check')+'confirmado no local':'manual · sem QR'}</span>`:''}</span>${!r.feito?`<span style="display:flex; gap:6px; flex:0 0 auto"><button class="btn principal" style="padding:7px 12px; font-size:12.5px; margin:0" onclick="escanearRotina(${ix})">${tIco('camera')}Escanear no local</button><button class="btn claro" style="padding:7px 10px; font-size:12px; margin:0" onclick="marcarRotina(${ix})">manual</button></span>`:''}</div>
   </div>`).join('')}
   <div class="aviso-lgpd">Cada marcação registra quem fez e quando. Leituras (caixa d'água) pedem o número — o valor de hoje comparado ao de ontem é o que denuncia vazamento.</div>
   ${modOn('reservas')&&eventos.length?`<div class="secao">EVENTOS A PREPARAR</div>
@@ -3533,13 +3586,29 @@ function marcarRotina(ix){
       <button class="btn principal btn-grande" onclick="confirmarLeitura(${ix})">Registrar</button>`);
     return;
   }
-  r.feito=true; atualizar(); toast(`Registrado: ${r.resp}, ${agora()}`);
+  r.feito=true; r.local=false; r.hora=agora(); atualizar(); toast(`Marcado manual (sem confirmação no local): ${r.resp}, ${agora()}`);
+}
+function escanearRotina(ix){
+  const r=rotina[ix]; const eq=r.t.split('—')[0].split('(')[0].trim();
+  abrirModal(`<h3>${tIco('camera')}Escanear no local — ${r.t}</h3>
+    <div class="sub" style="margin-bottom:10px">Aponte a câmera para o <b>QR/NFC fixado no equipamento</b>. A leitura prova que você esteve <b>fisicamente no local</b> — não dá pra marcar de casa.</div>
+    <div style="border:2px dashed var(--verde); border-radius:12px; padding:24px; text-align:center; color:var(--verde-escuro); font-weight:800; background:var(--verde-claro)">${tIco('camera')} lendo o QR de "${eq}"…</div>
+    <div class="sub" style="margin:8px 0 0; font-size:.76rem">No produto, o app grava junto a <b>geolocalização</b> e a <b>autoria</b> no ato do scan.</div>
+    ${r.t.toLowerCase().includes('leitura')?`<label style="display:block; margin-top:10px">Valor da leitura</label><input id="rt-v" placeholder="Ex.: 14.150 L">`:''}
+    <div class="botoes" style="margin-top:12px"><button class="btn principal btn-grande" onclick="confirmarScan(${ix})">${tIco('check')}Confirmar leitura do QR</button></div>`);
+}
+function confirmarScan(ix){
+  const r=rotina[ix];
+  if(r.t.toLowerCase().includes('leitura')){ const el=$('#rt-v'); const v=el&&el.value.trim(); if(!v){ toast('Informe o valor da leitura.'); return; } r.leitura=v; }
+  r.feito=true; r.local=true; r.hora=agora();
+  if(typeof logAudit==='function') logAudit('confirmou "'+r.t+'" no local (QR) '+agora(), r.resp||'Facilities');
+  fecharModal(); atualizar(); toast('Confirmado no local (QR) — '+agora());
 }
 function confirmarLeitura(ix){
   const v=$('#rt-v').value.trim();
   if(!v){ toast('Informe o valor — leitura sem número não detecta vazamento.'); return; }
-  rotina[ix].feito=true; rotina[ix].leitura=v;
-  fecharModal(); atualizar(); toast('Leitura registrada com valor');
+  rotina[ix].feito=true; rotina[ix].leitura=v; rotina[ix].local=false;
+  fecharModal(); atualizar(); toast('Leitura registrada (manual)');
 }
 function passagemTurno(){
   /* invertido: quem registra É o turno que sai (contexto fixo). Só pergunta
@@ -4036,7 +4105,7 @@ function verProvaDia(){
   abrirModal(`<h3>${tIco('check')}Minha prova do dia</h3>
     <div class="sub" style="margin-bottom:10px">Tudo que você registrou hoje, com hora e foto — a prova de que o serviço foi feito. Dá pra mandar pro superintendente num toque.</div>
     <div class="secao" style="margin-top:0">ROTINA CONCLUÍDA (${feitos.length}/${rotina.length})</div>
-    ${feitos.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${tIco('check')}${r.t}</span><span class="chip verde" style="border:none; font-size:.7rem">${r.leitura||'feito'}</span></div></div>`).join('')||'<div class="sub" style="margin-bottom:8px">Nenhuma tarefa marcada ainda hoje.</div>'}
+    ${feitos.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${tIco('check')}${r.t}</span><span class="chip ${r.local?'verde':'laranja'}" style="border:none; font-size:.7rem">${r.local?tIco('check')+'no local':'manual'}${r.leitura?' · '+r.leitura:''}</span></div></div>`).join('')||'<div class="sub" style="margin-bottom:8px">Nenhuma tarefa marcada ainda hoje.</div>'}
     <div class="secao">REGISTROS NO LIVRO (${regs.length})</div>
     ${regs.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${r.t}</span></div><div class="sub" style="display:flex; gap:5px; align-items:center; margin-top:3px">${r.foto?`<span class="chip cinza" style="border:none; padding:1px 7px; font-size:.66rem; display:inline-flex; gap:3px; align-items:center">${tIco('camera')}foto</span>`:''}<span>${r.quando}</span></div></div>`).join('')||'<div class="sub">Nada no livro ainda.</div>'}
     <div class="botoes" style="margin-top:12px"><a class="btn zap btn-grande" style="display:block" target="_blank" href="https://wa.me/?text=${encodeURIComponent(provaTxt(feitos,regs))}">Mandar minha prova (não pede ação)</a></div>
@@ -4240,7 +4309,7 @@ function verProvaSindico(){
   abrirModal(`<h3>${tIco('check')}Operação do facilities — hoje</h3>
     <div class="sub" style="margin-bottom:10px">Rotina concluída e registros do livro, com hora e foto.</div>
     <div class="secao" style="margin-top:0">ROTINA CONCLUÍDA (${feitos.length}/${rotina.length})</div>
-    ${feitos.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${tIco('check')}${r.t}</span><span class="chip verde" style="border:none; font-size:.7rem">${r.leitura||'feito'}</span></div></div>`).join('')||'<div class="sub" style="margin-bottom:8px">Nada marcado ainda.</div>'}
+    ${feitos.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${tIco('check')}${r.t}</span><span class="chip ${r.local?'verde':'laranja'}" style="border:none; font-size:.7rem">${r.local?tIco('check')+'no local':'manual'}${r.leitura?' · '+r.leitura:''}</span></div></div>`).join('')||'<div class="sub" style="margin-bottom:8px">Nada marcado ainda.</div>'}
     <div class="secao">REGISTROS NO LIVRO (${regs.length})</div>
     ${regs.map(r=>`<div class="item" style="padding:10px 12px"><div class="linha1"><span class="nome" style="font-size:.9rem">${r.t}</span></div><div class="sub" style="display:flex; gap:5px; align-items:center; margin-top:3px">${r.foto?`<span class="chip cinza" style="border:none; padding:1px 7px; font-size:.66rem; display:inline-flex; gap:3px; align-items:center">${tIco('camera')}foto</span>`:''}<span>${r.quando}</span></div></div>`).join('')}
     <button class="btn principal btn-grande" style="margin-top:12px" onclick="darVistoProva()">${tIco('check')}Dar visto · agradecer o facilities</button>`);
