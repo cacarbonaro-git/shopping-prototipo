@@ -427,7 +427,7 @@
 <script>
 'use strict';
 /* Versão do protótipo — aparece na barra superior. Atualize a cada release. */
-const VERSAO='Giro v1.7';
+const VERSAO='Giro v1.20';
 /* ============================================================
    Giro — protótipo navegável (sem servidor, dados em memória)
    Shopping fictício: Shopping Pátio Central, Osasco/SP, 60 lojas
@@ -567,14 +567,82 @@ const faixaKey=d=>d<=30?'1–30':d<=60?'31–60':d<=90?'61–90':'90+';
 let inadFaixa='Todas';
 /* ===== FATURAMENTO DECLARADO + ALUGUEL PERCENTUAL (nativo do shopping) ===== */
 let faturamentos = [
-  {un:'A-112', loja:'Ótica Vizzano', minimo:3200, perc:0.07, valor:82000, status:'declarado', quando:'02/07'},
-  {un:'A-204', loja:'Café Aroma',    minimo:2800, perc:0.08, valor:0,     status:'pendente'},
-  {un:'B-307', loja:'Sports Wear',   minimo:4500, perc:0.06, valor:210000, status:'auditar', quando:'01/07'},
-  {un:'B-503', loja:'Moda Bella',    minimo:3800, perc:0.07, valor:54000,  status:'declarado', quando:'03/07'},
-  {un:'A-K12', loja:'Açaí Mix',      minimo:1500, perc:0.10, valor:0,      status:'pendente'},
-  {un:'B-305', loja:'Renner',        minimo:18000,perc:0.05, valor:0,      status:'pendente'},
+  {un:'A-112', loja:'Ótica Vizzano', minimo:3200, perc:0.07, valor:82000, status:'declarado', quando:'02/07', pdv:true, area:60,  seg:'Ótica',       hist:[{m:'Dez',v:71000},{m:'Jan',v:64000},{m:'Fev',v:69000},{m:'Mar',v:74000},{m:'Abr',v:77000},{m:'Mai',v:79000}]},
+  {un:'A-204', loja:'Café Aroma',    minimo:2800, perc:0.08, valor:0,     status:'pendente',  area:40,  seg:'Alimentação', hist:[{m:'Dez',v:58000},{m:'Jan',v:49000},{m:'Fev',v:52000},{m:'Mar',v:55000},{m:'Abr',v:57000},{m:'Mai',v:61000}]},
+  {un:'B-307', loja:'Sports Wear',   minimo:4500, perc:0.06, valor:210000, status:'auditar', quando:'01/07', area:110, seg:'Esportivo',   hist:[{m:'Dez',v:198000},{m:'Jan',v:165000},{m:'Fev',v:172000},{m:'Mar',v:185000},{m:'Abr',v:190000},{m:'Mai',v:196000}]},
+  {un:'B-503', loja:'Moda Bella',    minimo:3800, perc:0.07, valor:37000,  status:'declarado', quando:'03/07', area:78,  seg:'Vestuário',   hist:[{m:'Dez',v:58000},{m:'Jan',v:55000},{m:'Fev',v:51000},{m:'Mar',v:47000},{m:'Abr',v:43000},{m:'Mai',v:40000}]},
+  {un:'A-K12', loja:'Açaí Mix',      minimo:1500, perc:0.10, valor:0,      status:'pendente',  area:15,  seg:'Alimentação', hist:[{m:'Dez',v:26000},{m:'Jan',v:22000},{m:'Fev',v:24000},{m:'Mar',v:25000},{m:'Abr',v:27000},{m:'Mai',v:29000}]},
+  {un:'B-305', loja:'Renner',        minimo:18000,perc:0.05, valor:648000, status:'declarado', quando:'01/07 (PDV)', pdv:true, area:1200,seg:'Vestuário',   hist:[{m:'Dez',v:560000},{m:'Jan',v:498000},{m:'Fev',v:540000},{m:'Mar',v:605000},{m:'Abr',v:578000},{m:'Mai',v:632000}]},
 ];
 const alugPercent = f => Math.max(f.minimo, Math.round(f.valor*f.perc));
+/* ===== INTEGRAÇÃO DE VENDAS (PDV/adquirente/hub de varejo) — captura o faturamento sem digitação ===== */
+let pdvHub = {status:'conectada', fonte:'Hub de varejo / adquirente (Linx · Totvs · Cielo)', sync:'há 20 min'};
+const lojasPdv = () => faturamentos.filter(f=>f.pdv).length;
+/* ===== ONBOARDING DE ABERTURA DE LOJA — checklist guiado de implantação (obra → operação) ===== */
+const PASSOS_ABERTURA = [
+  ['projeto',     'Projeto aprovado (padrão do shopping)', 'layout/arquitetura conforme o manual do lojista'],
+  ['art',         'ART/RRT do responsável técnico',        'obrigatória em obra — CREA/CAU'],
+  ['ligacoes',    'Ligações: energia, água, ar, dados',    'infra ligada e medida'],
+  ['vistoria',    'Vistoria de obra / entrega',            'o shopping libera a operação'],
+  ['alvara',      'Alvará + licenças',                     'funcionamento; AVCB e vigilância sanitária se alimentação'],
+  ['fachada',     'Comunicação visual / fachada',          'no padrão aprovado do mall'],
+  ['funcionarios','Funcionários cadastrados (acesso)',     'crachá/facial provisionado na segurança'],
+  ['entrega',     'Entrega de chaves + contrato assinado', 'marco de início da locação (Lei 8.245/91)'],
+];
+let aberturas = [
+  {loja:'O Boticário (reforma)', un:'A-120', piso:'L1', ramo:'Perfumaria', previsao:'20/07', check:{projeto:1,art:1,ligacoes:1,vistoria:1,alvara:1,fachada:0,funcionarios:1,entrega:0}},
+  {loja:'Grill Express', un:'B-119', piso:'L1', ramo:'Fast food', previsao:'15/08', check:{projeto:1,art:1,ligacoes:1,vistoria:0,alvara:0,fachada:0,funcionarios:0,entrega:0}},
+  {loja:'Outback',       un:'B-209', piso:'L2', ramo:'Restaurante', previsao:'30/09', check:{projeto:1,art:0,ligacoes:0,vistoria:0,alvara:0,fachada:0,funcionarios:0,entrega:0}},
+];
+const aberturaFeitos = a => PASSOS_ABERTURA.filter(p=>a.check[p[0]]).length;
+/* média (anônima) de vendas/m² por mês do segmento no shopping — base do benchmark do lojista */
+const BENCH_SEG = {'Vestuário':430,'Alimentação':1400,'Ótica':1000,'Esportivo':520,'Perfumaria':900,'Pet':380,'Livraria':300,'Loja âncora':250};
+const benchSeg = seg => BENCH_SEG[seg] || 500;
+/* ===== CONTRATOS DE LOCAÇÃO & RENOVATÓRIA (Lei 8.245/91) — datas relativas ao 'hoje' do demo (10/06/2026) ===== */
+let contratosLoc = [
+  {un:'A-101', loja:'Riachuelo (âncora)', inicio:'01/03/2019', fim:'28/02/2027', prazoMeses:96, indice:'IPCA',  mesReaj:3,  raio:'2 km — moda/vestuário'},
+  {un:'A-112', loja:'Ótica Vizzano',      inicio:'01/09/2021', fim:'31/08/2026', prazoMeses:60, indice:'IGP-M', mesReaj:9,  raio:'—'},
+  {un:'B-307', loja:'Sports Wear',        inicio:'01/05/2022', fim:'30/04/2027', prazoMeses:60, indice:'IPCA',  mesReaj:5,  raio:'1 km — artigos esportivos'},
+  {un:'B-503', loja:'Moda Bella',         inicio:'01/07/2023', fim:'30/06/2026', prazoMeses:36, indice:'IPCA',  mesReaj:7,  raio:'—'},
+  {un:'B-123', loja:'Pet & Cia',          inicio:'01/10/2020', fim:'31/12/2026', prazoMeses:75, indice:'IPCA',  mesReaj:6,  raio:'—'},
+  {un:'A-120', loja:'O Boticário',        inicio:'01/06/2021', fim:'31/05/2026', prazoMeses:60, indice:'IGP-M', mesReaj:6,  raio:'500 m — perfumaria', status:'indeterminado'},
+];
+/* meses (aprox.) entre hoje e uma data dd/mm/aaaa — base da janela da renovatória */
+function mesesAte(str){ const p=(str||'').split('/'); if(p.length!==3) return null; const dd=new Date(+p[2], +p[1]-1, +p[0]); return Math.round((dd-hoje)/(30.44*86400000)); }
+const MES_ABR=['','jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+/* ===== ESPAÇOS COMERCIAIS / MERCHANDISING — receita do shopping (contrato temporário + lançamento no financeiro) ===== */
+let espacosComerciais = [
+  {id:1, nome:'Espaço Promocional — Praça Central', tipo:'Ação promocional', valor:2500, unidade:'/semana',   status:'ocupado',   ocupante:'Samsung (lançamento)',            periodo:'08–14/06', lancado:false},
+  {id:2, nome:'Ilha K12 — Piso L1',                 tipo:'Quiosque/Ilha',    valor:1800, unidade:'/mês',      status:'ocupado',   ocupante:'Açaí Mix',                        periodo:'até 12/2026', lancado:true},
+  {id:3, nome:'Quiosque K21 — Piso L2',             tipo:'Quiosque/Ilha',    valor:1600, unidade:'/mês',      status:'ocupado',   ocupante:'Sorveteria',                      periodo:'até 10/2026', lancado:true},
+  {id:4, nome:'Painel LED — Praça de Alimentação',  tipo:'Mídia indoor',     valor:1200, unidade:'/quinzena', status:'reservado', ocupante:'O Boticário (Dia dos Namorados)',  periodo:'01–15/06', lancado:false},
+  {id:5, nome:'Totem de mídia — Entrada Norte',     tipo:'Mídia indoor',     valor:900,  unidade:'/quinzena', status:'livre',     ocupante:'',                                periodo:'',         lancado:false},
+  {id:6, nome:'Ilha vaga — Piso L1',                tipo:'Quiosque/Ilha',    valor:1700, unidade:'/mês',      status:'livre',     ocupante:'',                                periodo:'',         lancado:false},
+];
+/* ===== FUNDO DE PROMOÇÃO (FPP) COMO ROI — campanhas nas datas comerciais × resultado (fluxo/vendas) ===== */
+let fppInfo = {
+  arrecadadoAno:540000, saldo:128000,
+  campanhas:[
+    {nome:'Dia das Mães',       mes:'Mai', periodo:'01–12/05', invest:45000, status:'concluida', fluxo:18, vendas:23, incremental:410000, nf:'NF 2231', aderiram:38},
+    {nome:'Dia dos Namorados',  mes:'Jun', periodo:'02–12/06', invest:38000, status:'andamento', fluxo:14, vendas:19, incremental:330000, nf:'NF 2288', aderiram:31},
+    {nome:'Liquida de Inverno', mes:'Jul', periodo:'05–20/07', invest:30000, status:'planejada', aderiram:14, acao:'horário estendido + vitrine de liquidação'},
+    {nome:'Black Friday',       mes:'Nov', periodo:'27–30/11', invest:60000, status:'planejada', aderiram:9,  acao:'abertura antecipada + ofertas relâmpago'},
+    {nome:'Natal',              mes:'Dez', periodo:'01–24/12', invest:90000, status:'planejada', aderiram:6,  acao:'horário de Natal + decoração no padrão'},
+  ],
+};
+const TOTAL_LOJAS_CAMP = 46;               /* lojas em operação, elegíveis às campanhas do FPP */
+let minhasCampanhas = new Set();           /* campanhas que o lojista logado aderiu (demo) */
+/* ===== FLUXO DE PÚBLICO (people counting) — contadores câmera/wi-fi na entrada e nos corredores.
+   É a fonte real do "fluxo" que o FPP usa e da conversão que o ERP do lojista não entrega. ===== */
+let fluxoPublico = {
+  mesTotal:312000, mesAnterior:298000, hoje:9840, pico:'sáb · 15h–18h',
+  porPiso:[['Piso L1',148000],['Piso L2',112000],['Praça de Alimentação',52000]],
+  ticketsMes:74880,   /* vendas registradas no mês → conversão do shopping = tickets ÷ visitantes ≈ 24% */
+  porLoja:{ 'A-112':{passa:24000,entrou:5600}, 'A-204':{passa:31000,entrou:9200}, 'B-307':{passa:38000,entrou:9100}, 'B-503':{passa:22000,entrou:4600}, 'A-K12':{passa:41000,entrou:12000}, 'B-305':{passa:52000,entrou:18500} },
+  conexao:{status:'conectada', fonte:'12 contadores (câmera + wi-fi)', sync:'há 8 min'},
+};
+const fluxoConv = () => Math.round(fluxoPublico.ticketsMes/fluxoPublico.mesTotal*100);
+const fluxoDeltaMes = () => Math.round((fluxoPublico.mesTotal-fluxoPublico.mesAnterior)/fluxoPublico.mesAnterior*100);
 /* ===== MAPA DE OCUPAÇÃO & LEASING (planta por piso: lojas + merchandising) ===== */
 let mapaPiso='L1'; let mapaView='esquema'; let plantaOn=false;
 let mapaMapear=false, pinArmado=null, pinDrag=null;
@@ -670,10 +738,10 @@ let visitantes = [
 ];
 /* loja é permanente; o OCUPANTE é um vínculo (operador × titular) que muda. Trocar operador = encerrar e abrir vínculo + cascata. */
 let lojas = {
-  'B-305':{ocupante:'Renner',  tipo:'operador',            desde:'03/2024', proprietario:'Lojas Renner S.A.',  cobrancaPara:'titular', acesso:['facial','tag veicular'], app:true, fracao:1.15},
-  'A-110':{ocupante:'Fast Food Grill',   tipo:'operador',            desde:'08/2023', proprietario:'Grill Franchising', cobrancaPara:'operador',    acesso:['cartão'], app:true, fracao:1.15},
-  'B-502':{ocupante:'Livraria Saber', tipo:'titular-operador', desde:'01/2020', proprietario:'Livraria Saber ME', cobrancaPara:'titular', acesso:['facial'], app:true, fracao:1.30},
-  'A-K12':{ocupante:'Açaí Mix', tipo:'titular-operador', desde:'06/2019', proprietario:'Açaí Mix ME', cobrancaPara:'titular', acesso:['facial'], app:true, fracao:0.45},
+  'B-305':{ocupante:'Renner',  tipo:'operador',            desde:'03/2024', proprietario:'Lojas Renner S.A.',  cobrancaPara:'titular', acesso:['facial','tag veicular'], app:true, coef:1.15},
+  'A-110':{ocupante:'Fast Food Grill',   tipo:'operador',            desde:'08/2023', proprietario:'Grill Franchising', cobrancaPara:'operador',    acesso:['cartão'], app:true, coef:1.15},
+  'B-502':{ocupante:'Livraria Saber', tipo:'titular-operador', desde:'01/2020', proprietario:'Livraria Saber ME', cobrancaPara:'titular', acesso:['facial'], app:true, coef:1.30},
+  'A-K12':{ocupante:'Açaí Mix', tipo:'titular-operador', desde:'06/2019', proprietario:'Açaí Mix ME', cobrancaPara:'titular', acesso:['facial'], app:true, coef:0.45},
 };
 /* quem recebe o boleto, por extenso */
 function respCobranca(u){ return u.cobrancaPara==='operador' ? `${u.ocupante} (operador)` : `${u.proprietario} (titular)`; }
@@ -688,7 +756,7 @@ let acessos=[
   {quem:'Func. Grill (José S.)',                  un:'A-110', metodo:'Tag/cartão',     dir:'entrada', hora:'ontem 19:02'},
   {quem:'Paulo Henrique (montagem vitrine)', un:'A-203', metodo:'PIN temporário', dir:'entrada', hora:'ontem 14:20'},
 ];
-const metodoChip={'Facial':'verde','Tag/cartão':'verde','TAG veicular':'verde','QR visitante':'laranja','PIN temporário':'laranja','Documento na portaria':'cinza'};
+const metodoChip={'Facial':'verde','Tag/cartão':'verde','TAG veicular':'verde','QR visitante':'laranja','PIN temporário':'laranja','Documento na segurança':'cinza'};
 function logAcesso(quem,un,metodo,dir){ acessos.unshift({quem,un,metodo,dir,hora:agora()}); }
 /* aviso tem alvo: 'todas' os pisos ou só uma — aviso do piso errada é o que
    faz lojista silenciar notificação */
@@ -840,34 +908,38 @@ function marcaBar(){
   const innerBg = d ? (corBg?corMix(corBg,'#ffffff',0.10):'#111c33') : '#ffffff';
   const bord = d?'#2a3340':'#e5e7eb', mute=d?'#9fb0c8':'#6b7280';
   const ink = d?'#e6ecf5':'#1f2937';
-  const accSoft = d ? corMix(acc,'#ffffff',0.55) : accDark;
-  const trilha = d?'#22304a':'#e6e9ee';
+  const accText = ok ? '#ffffff' : '#171717';   /* mantém a prévia legível; o aviso abaixo orienta a corrigir */
+  const frame = d?'#243044':'#e5e7eb';
+  const accSoft = corMix(acc, innerBg, 0.82);   /* trilha suave na cor de destaque */
   return `<div class="wl-card" style="background:${cardBg}; border-color:${cardBord}">
     ${marcaHTML('preview', d, acc, gold)}
-    <div style="margin-top:10px; border:1px solid ${bord}; border-radius:12px; overflow:hidden; text-align:left">
-      <div style="background:${acc}; color:#fff; padding:8px 12px; font-weight:700; font-size:.82rem; display:flex; justify-content:space-between; align-items:center">${COND.nome}<span aria-hidden="true">🔔</span></div>
-      <div style="padding:10px 12px; background:${innerBg}">
-        <div style="border:1px solid ${bord}; border-radius:9px; padding:8px 10px; background:${d?'transparent':'#ffffff'}">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:.76rem; font-weight:700; color:${ink}">Arrecadação de junho<span style="color:${accSoft}">90%</span></div>
-          <div style="margin-top:6px; height:7px; border-radius:99px; background:${trilha}; overflow:hidden"><div style="width:90%; height:100%; background:${acc}"></div></div>
+    <div style="max-width:238px; margin:10px auto 0; border:6px solid ${frame}; border-radius:24px; overflow:hidden; box-shadow:0 8px 22px rgba(0,0,0,.18); text-align:left">
+      <div style="background:${acc}; color:${accText}; padding:9px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px">
+        <span style="font-weight:800; font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">${COND.nome}</span>
+        <span aria-hidden="true" style="opacity:.9; font-size:.9rem">🔔</span>
+      </div>
+      <div style="background:${innerBg}; padding:10px; display:flex; flex-direction:column; gap:8px">
+        <div style="border:1px solid ${bord}; border-radius:10px; padding:8px 10px">
+          <div style="display:flex; justify-content:space-between; font-size:.72rem; font-weight:700; color:${ink}"><span>Arrecadação de junho</span><span style="color:${acc}">90%</span></div>
+          <div style="height:6px; background:${accSoft}; border-radius:4px; margin-top:6px; overflow:hidden"><div style="width:90%; height:100%; background:${acc}"></div></div>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:9px">
-          <button class="btn principal" style="padding:7px 14px; font-size:.82rem; flex:0 0 auto; width:auto; background:${acc}; border-color:${acc}">Ação principal</button>
-          <span class="chip vermelho" style="font-size:.68rem">6 em atraso</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+          <span style="background:${acc}; color:${accText}; font-weight:700; font-size:.74rem; padding:7px 12px; border-radius:8px">Ação principal</span>
+          <span class="chip vermelho" style="font-size:.64rem">6 em atraso</span>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:9px">
-          <span style="font-size:.78rem; font-weight:700; color:${accSoft}">Ver balancete ›</span>
-          <span class="chip verde" style="font-size:.68rem">contas em dia</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:.72rem">
+          <span style="color:${acc}; font-weight:700">Ver balancete ›</span>
+          <span class="chip verde" style="font-size:.64rem">contas em dia</span>
         </div>
       </div>
-      <div style="display:flex; border-top:1px solid ${bord}; background:${cardBg}">
-        ${[['Início',true],['Faturamento',false],['Avisos',false]].map(([t,on])=>`<div style="flex:1; text-align:center; padding:7px 2px; font-size:.66rem; font-weight:${on?'700':'500'}; color:${on?acc:mute}">${t}</div>`).join('')}
+      <div style="display:flex; border-top:1px solid ${bord}; background:${innerBg}">
+        ${[['Início',1],['Faturamento',0],['Avisos',0]].map(([l,on])=>`<div style="flex:1; text-align:center; padding:7px 0; font-size:.62rem; font-weight:${on?'800':'600'}; color:${on?acc:mute}">${l}</div>`).join('')}
       </div>
     </div>
-    <div style="margin-top:8px; font-size:.74rem; font-weight:700; color:${ok?(d?'#6fe0b8':accDark):(d?'#ff9b9b':'#c0392b')}">
-      ${ok?`Contraste do texto: OK (${cr.toFixed(1)}:1)`:`Contraste baixo (${cr.toFixed(1)}:1) — escureça a cor de destaque pro texto branco ficar legível`}
+    <div style="margin-top:9px; font-size:.74rem; font-weight:700; text-align:center; color:${ok?(d?'#6fe0b8':accDark):(d?'#ff9b9b':'#c0392b')}">
+      ${ok?`✓ Contraste do texto: OK (${cr.toFixed(1)}:1)`:`⚠ Contraste baixo (${cr.toFixed(1)}:1) — escureça o destaque pro texto branco ficar legível`}
     </div>
-    <div style="margin-top:4px; font-size:.72rem; color:${mute}">As cores de status (atrasado, em dia, alerta) ficam fixas — a marca muda a aparência, nunca o significado.</div>
+    <div style="margin-top:4px; font-size:.7rem; text-align:center; color:${mute}">As cores de status (atrasado, em dia, alerta) ficam fixas — a marca muda a aparência, nunca o significado.</div>
   </div>`;
 }
 function logoSlotHTML(key,label,val){
@@ -1068,7 +1140,7 @@ function menuDemo(){
       </div></div>
     <div class="item" style="display:block">
       <div class="linha1"><span class="nome">${tIco('prancheta')}Módulos do shopping (demo)</span><span class="chip ${perfilCondAtual()==='custom'?'cinza':'verde'}" style="border:none">${PERFIL_COND_LABEL[perfilCondAtual()]}</span></div>
-      <div class="sub" style="margin:3px 0 8px">Liga só o que o shopping tem — portaria, elevador, reservas… o nav, a home e as telas se adaptam. <b>Não é plano de preço</b> (o preço é único); é o que o shopping usa.</div>
+      <div class="sub" style="margin:3px 0 8px">Liga só o que o shopping tem — segurança, elevador, reservas… o nav, a home e as telas se adaptam. <b>Não é plano de preço</b> (o preço é único); é o que o shopping usa.</div>
       <div style="display:flex; gap:6px; margin-bottom:8px">
         <button class="chip ${perfilCondAtual()==='clube'?'verde':'cinza'}" style="border:none; flex:1" onclick="setPerfilCond('clube')">Clube</button>
         <button class="chip ${perfilCondAtual()==='padrao'?'verde':'cinza'}" style="border:none; flex:1" onclick="setPerfilCond('padrao')">Padrão</button>
@@ -1101,7 +1173,7 @@ function menuDemo(){
     <div class="sub" style="margin:16px 0 8px"><b>Apresentações</b></div>
     <button class="item" style="width:100%; text-align:left; display:block" onclick="abrirVideos()">
       <div class="linha1"><span class="nome">${tIco('camera')}Apresentações por perfil (vídeos)</span><span style="opacity:.4">↗</span></div>
-      <div class="sub" style="margin-top:3px">Abre o índice com os 6 vídeos (lojista, superintendente, facilities, portaria, conselho, administradora) numa nova aba.</div></button>
+      <div class="sub" style="margin-top:3px">Abre o índice com os 6 vídeos (lojista, superintendente, facilities, segurança, conselho, administradora) numa nova aba.</div></button>
     <button class="btn principal btn-grande" onclick="fecharModal()">${entrada?'Depois escolho':'Pronto'}</button>`);
 }
 /* abre o índice de vídeos. Os vídeos vivem em 2 lugares conforme o contexto:
@@ -1355,7 +1427,7 @@ function TELAS_ONBOARDING(){
     <div class="sub">Lojistas podem perguntar "posso estender meu horário no feriado?" e o ${nomeAssist} cita o artigo — menos pergunta no seu WhatsApp.</div></div>`:''}
     <div class="item" style="border-color:var(--laranja)"><div class="linha1"><span class="nome">${tIco('cifrao')}Suba o último relatório e veja a inadimplência</span><span class="chip laranja">opcional agora</span></div>
     <div class="sub">Com aging (1-30, 31-60, 61-90, 90+ dias) e cobrança por WhatsApp + PIX pronta.</div></div>
-    <div class="item" style="background:var(--verde-claro); border-color:#bce3d6"><div class="sub" style="margin:0"><b>Próximos passos sugeridos:</b> gerar a cobrança do mês · cadastrar a portaria · marcar a assembleia de lançamento pra convidar os lojistas.</div></div>
+    <div class="item" style="background:var(--verde-claro); border-color:#bce3d6"><div class="sub" style="margin:0"><b>Próximos passos sugeridos:</b> gerar a cobrança do mês · cadastrar a segurança · marcar a assembleia de lançamento pra convidar os lojistas.</div></div>
     <button class="btn principal btn-grande" onclick="obConcluir()">Entrar no meu painel →</button>`;
   }
   const back=`<button onclick="obVoltar()" style="background:none; border:none; color:var(--cinza); font-weight:600; font-family:inherit; font-size:.92rem; padding:10px 4px; cursor:pointer">‹ Voltar</button>`;
@@ -1447,6 +1519,11 @@ TELAS.inicio = () => {
     ${gerirEntrada('maleta','Gestão / administradora',"verGestao()")}
     ${gerirEntrada('checklist','Trilha de auditoria',"verAuditoria()",[''+auditoria.length,'cinza'])}
     ${gerirEntrada('pasta','Documentos & laudos',"irPara('cdocs')",(()=>{const venc=laudos.some(l=>validadeStatus(l.validade).cor==='vermelho');const prox=laudos.some(l=>validadeStatus(l.validade).cor==='laranja');return[venc?'vencido':prox?'a vencer':'ok',venc?'vermelho':prox?'laranja':'verde'];})())}
+    ${gerirEntrada('contrato','Contratos & renovatória',"irPara('contratos')",(()=>{const urg=contratosLoc.filter(c=>{const m=mesesAte(c.fim);return c.status!=='indeterminado'&&m!==null&&m<=12&&m>=0;}).length;const crit=contratosLoc.some(c=>{const m=mesesAte(c.fim);return c.status!=='indeterminado'&&m!==null&&m<=6&&m>=0;});return[urg?''+urg:'ok',crit?'vermelho':urg?'laranja':'verde'];})())}
+    ${gerirEntrada('cifrao','Merchandising & espaços',"irPara('merchandising')",(()=>{const al=espacosComerciais.filter(e=>e.status!=='livre'&&!e.lancado).length;const liv=espacosComerciais.filter(e=>e.status==='livre').length;return[al?al+' a lançar':(liv?liv+' livre'+(liv>1?'s':''):'ok'),al?'laranja':'verde'];})())}
+    ${gerirEntrada('pessoas','Fluxo de público',"irPara('fluxo')",[fluxoConv()+'% conv.','verde'])}
+    ${gerirEntrada('predio','Aberturas de loja',"irPara('aberturas')",(()=>{const pend=aberturas.filter(a=>aberturaFeitos(a)<PASSOS_ABERTURA.length).length;return[pend?pend+' em obra':'ok',pend?'laranja':'verde'];})())}
+    ${gerirEntrada('grafico','Fundo de Promoção (ROI)',"irPara('fpp')",(()=>{const f=fppInfo.campanhas.filter(c=>c.incremental);const r=f.length?(f.reduce((s,c)=>s+c.incremental/c.invest,0)/f.length):0;return[r?r.toFixed(1)+'×':'ok','verde'];})())}
     ${gerirEntrada('importar','Integrações',"irPara('integracoes')",(()=>{const p=integracoes.filter(i=>i.status==='pendente'||i.status==='erro').length;return[p?''+p:'ok',p?'laranja':'verde'];})())}
     ${gerirEntrada('calendario','Agenda de reservas',"irPara('reservas')")}
     ${gerirEntrada('robo',nomeAssist+' · fontes',"abaFontes='curadoria';irPara('fontesEdi')",(()=>{const lac=curadoria.lacunas.length;return[lac?''+lac:'ok',lac?'laranja':'verde'];})())}
@@ -1490,7 +1567,7 @@ function verCobranca(ix){
     <div class="sub" style="margin-bottom:8px"><span class="chip ${c}">${f}</span> · ${i.dias} dias de atraso</div>
     <div class="sub" style="margin-bottom:6px"><b>Competências em aberto:</b> ${i.meses.join(', ')}</div>
     <div class="sub" style="margin-bottom:6px"><b>Saldo com encargos:</b> ${fmt(divida(i))}</div>
-    ${i.alugada?'<div class="sub" style="margin-bottom:6px">Loja alugada — a cobrança vai à <b>proprietária</b>, não ao operador (responsabilidade do titular do contrato de locação — Lei 8.245/91).</div>':''}
+    ${i.alugada?'<div class="sub" style="margin-bottom:6px">Loja sublocada — a cobrança vai ao <b>titular do contrato</b>, não ao operador (a responsabilidade é de quem assina a locação com o empreendedor — Lei 8.245/91).</div>':''}
     ${i.tel?'':'<div class="sub" style="margin-bottom:6px">Sem WhatsApp cadastrado — use "copiar mensagem".</div>'}
     <div class="botoes" style="margin-top:12px">
       <button class="btn zap" onclick="cobrar(${ix})">Cobrar no WhatsApp</button>
@@ -2014,7 +2091,7 @@ TELAS.encomendas = () => {
 <h2>Aguardando retirada (${ag.length})<span class="mais" onclick="irPara('visitantes')">${(n=>n===1?'1 visitante':n+' visitantes')(visitantes.filter(v=>v.status==='entrou').length)} no shopping ›</span></h2>
   ${ag.map(e=>{const sp=esperaEnc(e.chegada); const cor=sp.dias>=3?'vermelho':sp.dias>=1?'laranja':'cinza'; const txt=sp.dias===0?`hoje ${sp.hhmm}`:`há ${sp.dias} dia${sp.dias>1?'s':''}`;
     const exMor=lojas[e.un]&&lojas[e.un].ocupante!==e.lojista; /* vínculo encerrado: destinatário saiu */
-    const msg=`Olá, ${e.lojista.split(' ')[0]}! Chegou uma mercadoria (${e.transp}) para o ${e.un}. Pode retirar na portaria. — ${COND.nome}`;
+    const msg=`Olá, ${e.lojista.split(' ')[0]}! Chegou uma mercadoria (${e.transp}) para o ${e.un}. Pode retirar na doca de recebimento. — ${COND.nome}`;
     return `<div class="item" style="cursor:pointer${exMor?'; border-color:var(--vermelho)':''}" onclick="verEncomenda(${e.id})">
     <div class="linha1"><span class="nome">${e.un} — ${e.lojista}</span><span style="display:flex; align-items:center; gap:6px; flex:0 0 auto"><span class="chip ${exMor?'vermelho':cor}">${exMor?'saiu':txt}</span><span style="color:var(--cinza)">›</span></span></div>
     <div class="sub">${e.transp}${exMor?` · <b style="color:var(--vermelho)">${e.lojista.split(' ')[0]} saiu da loja — devolver / encaminhar</b>`:sp.dias>=3?` · <b style="color:var(--vermelho)">encalhada — lembre o lojista</b>`:''}</div>
@@ -2031,11 +2108,11 @@ TELAS.encomendas = () => {
 /* detalhe da mercadoria: foto, prazo e reenvio de aviso */
 function verEncomenda(id){
   const e=encomendas.find(x=>x.id===id); if(!e) return;
-  const msg=`Olá, ${e.lojista.split(' ')[0]}! Chegou uma mercadoria (${e.transp}) para o ${e.un}. Pode retirar na portaria. — ${COND.nome}`;
+  const msg=`Olá, ${e.lojista.split(' ')[0]}! Chegou uma mercadoria (${e.transp}) para o ${e.un}. Pode retirar na doca de recebimento. — ${COND.nome}`;
   abrirModal(`<h3>${tIco('pacote')}${e.un} — ${e.lojista}</h3>
     ${fotoPacote(e)}
     <div class="sub" style="margin:8px 0 6px"><b>Transportadora:</b> ${e.transp} · <b>chegou:</b> ${e.chegada}</div>
-    <div class="sub" style="margin-bottom:6px">A foto protege a portaria (estado do pacote na chegada) e ajuda a achar na prateleira. Lojista foi avisado no WhatsApp com a foto — reenvie se precisar.</div>
+    <div class="sub" style="margin-bottom:6px">A foto protege a segurança (estado da carga na chegada) e ajuda a achar na doca. Lojista foi avisado no WhatsApp com a foto — reenvie se precisar.</div>
     <div class="botoes" style="margin-top:12px">
       <a class="btn zap" target="_blank" href="https://wa.me/${e.tel}?text=${encodeURIComponent(msg)}">Avisar de novo no WhatsApp</a>
       <button class="btn principal" onclick="retirar(${e.id})">${tIco('check')}Confirmar retirada</button>
@@ -2077,10 +2154,10 @@ function retirar(id){
   const e=encomendas.find(x=>x.id===id);
   /* campo em branco de propósito: quem retira nem sempre é o lojista (filho, empregada, lojista vizinho autorizado) */
   abrirModal(`<h3>Confirmar retirada — ${e.un}</h3>
-    <label>Quem está retirando?</label><input id="re-nome" placeholder="Nome de quem está na portaria agora">
+    <label>Quem está retirando?</label><input id="re-nome" placeholder="Nome de quem está retirando na doca">
     <label>Documento (RG/CPF/CNH)</label><input id="re-doc" placeholder="Ex.: RG 12.345.678-9">
     <button class="btn principal btn-grande" onclick="confirmaRetirada(${id})">Confirmar retirada</button>
-    <div class="aviso-lgpd">Se não for o próprio lojista, o documento protege a portaria: fica registrado quem levou, quando e com qual documento.</div>`);
+    <div class="aviso-lgpd">Se não for o próprio lojista, o documento protege a segurança: fica registrado quem levou, quando e com qual documento.</div>`);
 }
 function confirmaRetirada(id){
   const nome=$('#re-nome').value.trim(), doc=$('#re-doc').value.trim();
@@ -2117,7 +2194,7 @@ TELAS.visitantes = () => {
   <div class="aviso-lgpd">Entrada só com documento e autorização do lojista. Quem entrou e não saiu fica em "No shopping agora" — em emergência, essa lista vale ouro.</div>
 </div>`;
 };
-/* ===== TELA DE CONTROLE DE ACESSO (lado da portaria) ===== */
+/* ===== TELA DE CONTROLE DE ACESSO (lado da segurança) ===== */
 TELAS.acessos = () => {
   const dentro=visitantes.filter(v=>v.status==='entrou').length;
   return `<div class="tela on">
@@ -2156,16 +2233,16 @@ function confirmarEntrada(ix){
   if(!doc){ toast('Documento é obrigatório — sem documento não entra.'); return; }
   const v=visitantes[ix];
   v.doc=doc; v.status='entrou'; v.entrada=agora();
-  logAcesso(v.nome, v.un, v.qr?'QR visitante':'Documento na portaria', 'entrada');
+  logAcesso(v.nome, v.un, v.qr?'QR visitante':'Documento na segurança', 'entrada');
   fecharModal(); atualizar(); toast('Entrada registrada · Acesso liberado e registrado no controle de acesso.');
 }
 function saida(ix){
   const v=visitantes[ix];
   v.status='saiu'; v.saida=agora();
-  logAcesso(v.nome, v.un, v.qr?'QR visitante':'Documento na portaria', 'saída');
+  logAcesso(v.nome, v.un, v.qr?'QR visitante':'Documento na segurança', 'saída');
   atualizar(); toast('Saída registrada');
 }
-/* ===== QR de visitante (roadmap CondoX): lojista autoriza → QR → portaria valida ===== */
+/* ===== QR de visitante (roadmap CondoX): lojista autoriza → QR → segurança valida ===== */
 function qrSvg(seed,px){
   let h=0; for(const ch of seed) h=(h*31+ch.charCodeAt(0))>>>0;
   const rnd=()=>{h=(h*1103515245+12345)>>>0; return h/4294967296;};
@@ -2180,7 +2257,7 @@ function qrSvg(seed,px){
 /* "foto" simulada do pacote no balcão, com carimbo de data/hora —
    no produto final é a foto real tirada pela câmera no registro de chegada */
 function fotoPacote(e){
-  return `<svg viewBox="0 0 200 92" role="img" aria-label="Foto do pacote na portaria (simulação)" style="width:100%; border-radius:10px; display:block; background:#737d8e">
+  return `<svg viewBox="0 0 200 92" role="img" aria-label="Foto da carga na doca (simulação)" style="width:100%; border-radius:10px; display:block; background:#737d8e">
     <rect width="200" height="92" fill="#9aa3b2"/>
     <rect y="62" width="200" height="30" fill="#6e7686"/>
     <rect x="68" y="20" width="64" height="46" rx="2" fill="#c89b62"/>
@@ -2207,7 +2284,7 @@ function confirmarAutorizacao(){
   abrirModal(`<h3>${tIco('check')}${n} autorizado(a)</h3>
     <div class="item" style="text-align:center; padding:18px">${qrSvg(n+MORADOR.un,150)}
       <div class="sub" style="margin-top:10px">Acesso para <b>${q.toLowerCase()}</b> autorizado pelo ${MORADOR.un} · ${q==='Hoje'?'válido até o fim do dia':'válido no dia seguinte'}</div></div>
-    <a class="btn zap btn-grande" style="display:block" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Seu acesso ao '+COND.nome+' está autorizado! Mostre o QR Code que estou te enviando na portaria. — '+MORADOR.nome.split(' ')[0])}">Enviar QR pelo WhatsApp</a>
+    <a class="btn zap btn-grande" style="display:block" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Seu acesso ao '+COND.nome+' está autorizado! Mostre o QR Code que estou te enviando no controle de acesso. —'+MORADOR.nome.split(' ')[0])}">Enviar QR pelo WhatsApp</a>
     <button class="btn claro btn-grande" onclick="fecharModal()">Fechar</button>`);
   atualizar();
 }
@@ -2234,25 +2311,69 @@ function novaVisita(){
     <label>Autorização do lojista</label>
     <select id="vi-a"><option>Autorizou (interfone/WhatsApp)</option><option>Não atendeu / não autorizou</option></select>
     <button class="btn principal btn-grande" onclick="registrarVisita()">Registrar entrada</button>
-    <div class="aviso-lgpd">Sem autorização do lojista, visitante não passa da portaria — sem exceção.</div>`);
+    <div class="aviso-lgpd">Sem autorização do lojista, visitante não passa do controle de acesso — sem exceção.</div>`);
   preencherUnidades('vi-piso','vi-u','A-305');
 }
 function registrarVisita(){
   const n=$('#vi-n').value.trim(), d=$('#vi-d').value.trim(), u=$('#vi-u').value;
   if(!n||!d){ toast('Nome e documento são obrigatórios.'); return; }
-  if($('#vi-a').value.startsWith('Não')){ toast('Sem autorização do lojista, a entrada não é registrada. Visitante aguarda na portaria.'); return; }
+  if($('#vi-a').value.startsWith('Não')){ toast('Sem autorização do lojista, a entrada não é registrada. Visitante aguarda no controle de acesso.'); return; }
   visitantes.unshift({nome:n, un:u, tipo:'Visita', status:'entrou', doc:d, entrada:agora(), saida:''});
-  logAcesso(n, u, 'Documento na portaria', 'entrada');
+  logAcesso(n, u, 'Documento na segurança', 'entrada');
   fecharModal(); atualizar(); toast('Entrada registrada: documento, autorização e hora');
 }
 
 /* ===== MORADOR ===== */
 /* Home do lojista na ordem do design system CondoX (seção 15):
    Header → Hero → Avisos → Acesso rápido → Financeiro → Próximas reservas → Comunicados */
+/* ALERTA DE RISCO / SAÚDE DO LOJISTA — cruza tendência de vendas (hist) com atraso de aluguel (inadimplentes) */
+function riscoLojista(f){
+  const h=(f.hist||[]); if(h.length<3) return null;
+  const serie = (f.status!=='pendente' && f.valor>0) ? h.concat([{m:'Jun',v:f.valor}]) : h.slice();
+  const n=serie.length;
+  const last=serie[n-1].v, prev=serie[n-2].v, prev2=serie[n-3].v;
+  const drop6 = (last-serie[0].v)/serie[0].v;
+  const doisEmQueda = last<prev && prev<prev2;
+  const pagaMinimo = last*f.perc < f.minimo;
+  const inad = inadimplentes.find(i=>i.un===f.un);
+  const dias = inad?inad.dias:0;
+  const motivos=[];
+  if(drop6<=-0.12) motivos.push(`vendas ${Math.round(drop6*100)}% em 6 meses`);
+  if(doisEmQueda) motivos.push('queda em 2+ meses seguidos');
+  if(dias>=90) motivos.push(`aluguel ${dias} dias em atraso`);
+  else if(dias>=30) motivos.push(`${dias} dias de atraso no aluguel`);
+  if(pagaMinimo && drop6<0) motivos.push('vendas já no piso do aluguel mínimo');
+  const fortes=(drop6<=-0.20?1:0)+(doisEmQueda?1:0)+(dias>=90?1:0);
+  let nivel=null;
+  if(fortes>=2 || (dias>=90 && drop6<0)) nivel='alto';
+  else if(motivos.length>=2 || dias>=60 || drop6<=-0.12) nivel='medio';
+  if(!nivel) return null;
+  const acao = nivel==='alto'
+    ? 'Conversa de retenção agora: renegociar aluguel/prazo ou já preparar a reposição do ponto.'
+    : 'Acompanhar de perto: contato do superintendente e revisão do contrato na próxima janela.';
+  return {nivel, motivos, acao, drop6, dias, loja:f.loja, un:f.un, tel:inad?inad.tel:''};
+}
 TELAS.faturamento = () => {
   const dec=faturamentos.filter(f=>f.status==='declarado').length;
   const pend=faturamentos.filter(f=>f.status==='pendente').length;
   const aud=faturamentos.filter(f=>f.status==='auditar').length;
+  const ordem={alto:0, medio:1};
+  const riscos=faturamentos.map(riscoLojista).filter(Boolean).sort((a,b)=>(ordem[a.nivel]-ordem[b.nivel])||(a.drop6-b.drop6));
+  const secaoRisco = riscos.length ? `
+  <div class="secao" style="display:flex; align-items:center; gap:6px">${tIco('alerta')}Saúde dos lojistas — alertas de risco (${riscos.length})</div>
+  <div class="sub" style="margin:-4px 0 10px">Queda atípica de vendas cruzada com atraso de aluguel: sinal precoce de inadimplência ou saída. Aja antes de a loja fechar.</div>
+  ${riscos.map(r=>{
+    const cor=r.nivel==='alto'?'vermelho':'laranja';
+    const msg=`Ola! Aqui e o superintendente do ${COND.nome}. Podemos conversar sobre a sua loja ${r.loja}? Quero entender como ajudar e alinhar o aluguel.`;
+    return `<div class="item" style="border-left:3px solid var(--${cor})">
+      <div class="linha1"><span class="nome">${r.un} — ${r.loja}</span><span class="chip ${cor}">risco ${r.nivel}</span></div>
+      <div class="sub" style="margin-top:4px">${r.motivos.join(' · ')}</div>
+      <div class="sub" style="margin-top:5px; display:flex; align-items:flex-start; gap:5px">${tIco('check')}<span><b>Ação sugerida:</b> ${r.acao}</span></div>
+      <div class="botoes" style="justify-content:flex-end; margin-top:8px">
+        <button class="chip cinza" style="border:none; cursor:pointer" onclick="irPara('inadimplencia')">Ver cobrança</button>
+        ${r.tel?`<a class="chip verde" style="border:none; text-decoration:none" target="_blank" href="https://wa.me/${r.tel}?text=${encodeURIComponent(msg)}">Falar com o lojista</a>`:''}
+      </div>
+    </div>`;}).join('')}` : '';
   return `<div class="tela on">
   <div class="topo"><h1>Faturamento das lojas</h1><p>Junho/2026 · o aluguel é o maior entre o mínimo e o percentual sobre as vendas</p></div>
   <div style="display:flex; gap:8px; margin-bottom:12px">
@@ -2260,12 +2381,17 @@ TELAS.faturamento = () => {
     <div class="card aten"><div class="num">${pend}</div><div class="lbl">pendentes</div></div>
     <div class="card ${aud?'aten':''}"><div class="num">${aud}</div><div class="lbl">a auditar</div></div>
   </div>
+  <button class="item" style="width:100%; text-align:left; display:block; margin:-4px 0 12px" onclick="irPara('integracoes')">
+    <div class="linha1"><span class="nome" style="font-size:.92rem">${tIco('grafico')}Vendas automáticas (PDV)</span><span class="chip verde">${lojasPdv()} de ${faturamentos.length} ›</span></div>
+    <div class="sub" style="margin-top:4px">Essas lojas não digitam — o faturamento vem do PDV/adquirente, sem subdeclaração. O resto declara manual.</div></button>
+  ${secaoRisco}
+  <div class="secao">Declarações do mês</div>
   ${faturamentos.map((f,ix)=>{
     const alug=alugPercent(f), porPerc=f.valor*f.perc>f.minimo;
     const chip=f.status==='declarado'?'<span class="chip verde">declarado</span>':f.status==='auditar'?'<span class="chip laranja">auditar &rsaquo;</span>':'<span class="chip vermelho">pendente</span>';
     return `<div class="item" style="cursor:pointer" onclick="verFaturamento(${ix})">
-      <div class="linha1"><span class="nome">${f.un} — ${f.loja}</span>${chip}</div>
-      <div class="sub" style="margin-top:4px">${f.status==='pendente'?`ainda não declarou · aluguel mínimo ${fmt(f.minimo)}`:`vendas ${fmt(f.valor)} · aluguel devido <b>${fmt(alug)}</b> ${porPerc?'(percentual)':'(mínimo)'}`}</div>
+      <div class="linha1"><span class="nome">${f.un} — ${f.loja}</span><span style="display:flex; gap:5px; flex:0 0 auto">${f.pdv?'<span class="chip verde" style="border:none">via PDV</span>':''}${chip}</span></div>
+      <div class="sub" style="margin-top:4px">${f.status==='pendente'?`ainda não declarou · aluguel mínimo ${fmt(f.minimo)}`:`vendas ${fmt(f.valor)}${f.pdv?' (automático)':''} · aluguel devido <b>${fmt(alug)}</b> ${porPerc?'(percentual)':'(mínimo)'}`}</div>
     </div>`;}).join('')}
   <div class="aviso-lgpd">O faturamento de cada loja é sigiloso — nunca visível a outros lojistas. Variações atípicas caem em "a auditar" (direito de verificação previsto no contrato de locação).</div>
 </div>`;
@@ -2284,11 +2410,152 @@ function verFaturamento(ix){
         :`<button class="btn principal" onclick="fecharModal();toast('Faturamento conferido e liberado para faturar.')">Conferir e faturar</button>`}
     </div>`);
 }
+/* PAINEL DE DESEMPENHO DO LOJISTA — vendas do mês, tendência, vendas/m² vs média do segmento, custo de ocupação */
+function painelDesempenho(f){
+  if(!f) return '';
+  const area=f.area||100, seg=f.seg||'Geral';
+  const closed=(f.hist||[]).slice();
+  const declJun = f.status!=='pendente' && f.valor>0;
+  const serie = closed.concat([{m:'Jun', v: declJun?f.valor:null}]);
+  const vendasRef = declJun ? f.valor : (closed.length?closed[closed.length-1].v:0);
+  const mesRef = declJun ? 'Junho/2026' : (closed.length?closed[closed.length-1].m+'/2026':'—');
+  const prevV = declJun ? (closed.length?closed[closed.length-1].v:0) : (closed.length>1?closed[closed.length-2].v:0);
+  const delta = prevV ? (vendasRef-prevV)/prevV : 0;
+  const vm2 = area ? vendasRef/area : 0;
+  const bench = benchSeg(seg);
+  const dBench = bench ? (vm2-bench)/bench : 0;
+  const alugRef = Math.max(f.minimo, Math.round(vendasRef*f.perc));
+  const occ = vendasRef ? alugRef/vendasRef : 0;
+  const maxV = Math.max(...serie.map(s=>s.v||0), 1);
+  const up=delta>=0, bUp=dBench>=0, occOk=occ>0 && occ<=0.15;
+  const bars = serie.map(s=>{
+    const h = s.v ? Math.max(6, Math.round(s.v/maxV*100)) : 8;
+    const cur = s.m==='Jun';
+    const fill = s.v ? (cur?'var(--verde)':'var(--verde-claro)') : 'transparent';
+    const dash = (cur && !s.v) ? 'border:1px dashed var(--cinza)' : 'border:none';
+    return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px">
+      <div style="width:100%; height:60px; display:flex; align-items:flex-end"><div style="width:70%; margin:0 auto; border-radius:5px 5px 0 0; height:${h}%; background:${fill}; ${dash}"></div></div>
+      <span style="font-size:.6rem; color:var(--cinza); font-weight:${cur?'700':'500'}">${s.m}</span>
+    </div>`;}).join('');
+  return `<div class="edi-card" style="border-left-color:var(--verde)">
+    <div class="linha1"><span class="nome">${tIco('grafico')}Seu desempenho</span><span class="chip cinza" style="border:none">${seg}</span></div>
+    <div style="display:flex; align-items:baseline; gap:9px; margin-top:8px; flex-wrap:wrap">
+      <span style="font-size:1.5rem; font-weight:800; line-height:1">${fmt(vendasRef)}</span>
+      <span style="font-size:.78rem; color:var(--cinza)">vendas · ${mesRef}</span>
+      ${prevV?`<span class="chip ${up?'verde':'vermelho'}" style="border:none; margin-left:auto">${up?'▲':'▼'} ${Math.abs(delta*100).toFixed(0)}% vs mês anterior</span>`:''}
+    </div>
+    <div style="display:flex; gap:5px; align-items:flex-end; margin:12px 0 2px">${bars}</div>
+    ${!declJun?`<div class="sub" style="margin:8px 0 0">Junho ainda não declarado — <button class="chip verde" style="border:none; cursor:pointer" onclick="declararFaturamento()">declarar agora</button> pra fechar o mês.</div>`:''}
+    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap">
+      <div style="flex:1 1 44%; border:1px solid var(--borda); border-radius:10px; padding:9px 11px">
+        <div class="sub" style="margin:0; font-size:.72rem">Vendas por m²</div>
+        <div style="font-weight:800; font-size:1.05rem">${fmt(Math.round(vm2))}<span style="font-size:.68rem; font-weight:500; color:var(--cinza)">/m²</span></div>
+        <div class="sub" style="margin:2px 0 0; font-size:.68rem; color:${bUp?'var(--verde-escuro)':'var(--vermelho)'}">${bUp?'▲':'▼'} ${Math.abs(dBench*100).toFixed(0)}% vs média de ${seg}</div>
+      </div>
+      <div style="flex:1 1 44%; border:1px solid var(--borda); border-radius:10px; padding:9px 11px">
+        <div class="sub" style="margin:0; font-size:.72rem">Custo de ocupação</div>
+        <div style="font-weight:800; font-size:1.05rem">${(occ*100).toFixed(1)}%</div>
+        <div class="sub" style="margin:2px 0 0; font-size:.68rem; color:${occOk?'var(--verde-escuro)':'var(--laranja)'}">aluguel ÷ vendas · ${occOk?'saudável (≤15%)':'atenção (>15%)'}</div>
+      </div>
+    </div>
+    ${(()=>{const pl=fluxoPublico.porLoja[f.un]; if(!pl) return `<div class="sub" style="margin-top:10px; opacity:.7"><span class="chip cinza" style="border:none">sem contador</span> Fluxo em frente à loja ainda indisponível nesta LUC.</div>`;
+      const cap=Math.round(pl.entrou/pl.passa*100), rpp=pl.passa?Math.round(vendasRef/pl.passa):0;
+      return `<div style="margin-top:12px; border:1px solid var(--borda); border-radius:10px; padding:10px 11px">
+        <div class="linha1"><span class="nome" style="font-size:.9rem">${tIco('pessoas')}Fluxo em frente à loja</span><span class="chip verde">${cap}% captação</span></div>
+        <div class="sub" style="margin-top:5px">${pl.passa.toLocaleString('pt-BR')} passaram · <b>${pl.entrou.toLocaleString('pt-BR')} entraram</b> no mês. Cada passante rende <b>${fmt(rpp)}</b> em venda — o dado que o seu PDV não mostra.</div>
+        <div class="sub" style="margin-top:4px; font-size:.72rem; color:var(--cinza)">Fonte: contadores do shopping (people counting), anônimo.</div>
+      </div>`;})()}
+    <div class="aviso-lgpd" style="margin-top:10px">O benchmark é a <b>média anônima</b> do segmento no shopping — você nunca vê a venda de outra loja, e ninguém vê a sua.</div>
+  </div>`;
+}
+TELAS.aberturas = () => {
+  const tot=PASSOS_ABERTURA.length;
+  return `<div class="tela on">
+  <div class="topo"><h1>${tIco('predio')}Aberturas de loja</h1><p>Implantação: da obra à inauguração</p></div>
+  <div class="sub" style="margin:-4px 0 10px">Checklist guiado por loja em abertura — projeto, ART, vistoria, alvará, funcionários — com o que a lei e o padrão do shopping exigem em cada passo.</div>
+  ${aberturas.map((a,ix)=>{const f=aberturaFeitos(a), pc=Math.round(f/tot*100), pronta=f===tot;
+    return `<button class="item" style="width:100%; text-align:left; display:block" onclick="verAbertura(${ix})">
+      <div class="linha1"><span class="nome">${a.un} — ${a.loja}</span><span class="chip ${pronta?'verde':'laranja'}">${pronta?'pronta ›':f+'/'+tot+' ›'}</span></div>
+      <div class="sub" style="margin-top:3px">${a.ramo} · ${a.piso} · previsão ${a.previsao}</div>
+      <div class="cat-trilha" style="margin-top:6px"><div class="cat-barra" style="width:${pc}%; background:${pronta?'var(--verde)':'var(--laranja)'}"></div></div>
+    </button>`;}).join('')||vazio('predio','Nenhuma abertura em andamento','Lojas em obra/implantação aparecem aqui com o checklist.')}
+  <div class="aviso-lgpd">A loja só entra em operação (e começa a locação) quando o checklist fecha — vistoria e alvará são pré-requisitos legais.</div>
+</div>`;
+};
+function verAbertura(ix){
+  const a=aberturas[ix]; if(!a) return;
+  const tot=PASSOS_ABERTURA.length, f=aberturaFeitos(a), pronta=f===tot;
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('predio')}Abertura — ${a.loja}</h3>
+    <div class="sub" style="margin-bottom:8px">${a.un} · ${a.ramo} · ${a.piso} · inauguração prevista ${a.previsao} · <b>${f}/${tot}</b></div>
+    ${PASSOS_ABERTURA.map(([k,lbl,nota])=>{const ok=a.check[k];
+      return `<button class="item" style="width:100%; text-align:left; display:block; padding:10px 12px" onclick="toggleAbertura(${ix},'${k}')">
+        <div class="linha1"><span class="nome" style="font-size:.9rem; display:flex; align-items:center; gap:6px">${tIco(ok?'check':'checklist')}${lbl}</span><span class="chip ${ok?'verde':'cinza'}" style="border:none">${ok?'feito':'pendente'}</span></div>
+        <div class="sub" style="margin-top:2px; font-size:.76rem">${nota}</div></button>`;}).join('')}
+    ${pronta
+      ? `<div class="item" style="border-color:var(--verde); background:var(--verde-claro); margin-top:8px"><div class="linha1"><span class="nome">${tIco('check')}Pronta pra inaugurar</span></div><div class="sub" style="margin-top:3px">Checklist completo — a LUC pode passar para <b>operando</b> e a locação começa. No produto final, um toque muda o status no mapa de ocupação.</div></div>`
+      : `<div class="aviso-lgpd" style="margin-top:8px">Faltam ${tot-f} item(ns). Vistoria e alvará são pré-requisitos legais pra abrir; a entrega de chaves/contrato marca o início da locação.</div>`}
+    <button class="btn principal btn-grande" onclick="fecharModal()">Fechar</button>`);
+}
+function toggleAbertura(ix,k){ const a=aberturas[ix]; if(!a) return; a.check[k]=a.check[k]?0:1; if(typeof logAudit==='function') logAudit('atualizou o checklist de abertura da loja '+a.loja+' ('+k+')','Superintendente'); verAbertura(ix); }
+/* ===== MARKETING COOPERADO — adesão do lojista às campanhas do FPP / datas comerciais ===== */
+function verCampanhasLojista(){
+  const camp=fppInfo.campanhas.filter(c=>c.status==='andamento'||c.status==='planejada');
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('grafico')}Campanhas do shopping</h3>
+    <div class="sub" style="margin-bottom:10px">O FPP (que você já paga) investe nas datas comerciais. <b>Aderir</b> = participar da ação com o mall — horário estendido, vitrine, oferta. Mais fluxo pra sua loja, com o custo do marketing dividido.</div>
+    ${camp.map(c=>{const idx=fppInfo.campanhas.indexOf(c); const aderi=minhasCampanhas.has(c.nome);
+      return `<div class="item" style="${aderi?'border-color:var(--verde)':''}">
+        <div class="linha1"><span class="nome" style="font-size:.92rem">${c.nome} <span style="color:var(--cinza); font-weight:500">· ${c.periodo}</span></span><span class="chip ${c.status==='andamento'?'laranja':'cinza'}" style="border:none">${c.status==='andamento'?'em andamento':'planejada'}</span></div>
+        <div class="sub" style="margin-top:3px">${c.acao||'ação do shopping nas datas comerciais'} · ${c.aderiram||0}/${TOTAL_LOJAS_CAMP} lojas já aderiram</div>
+        <div class="botoes" style="margin-top:8px"><button class="btn ${aderi?'claro':'principal'}" style="flex:0 0 auto; padding:8px 14px; font-size:13px" onclick="aderirCampanha(${idx})">${aderi?tIco('check')+'Participando — sair':'Participar da campanha'}</button></div>
+      </div>`;}).join('')||vazio('grafico','Sem campanhas abertas','As próximas datas comerciais aparecem aqui pra você aderir.')}
+    <div class="aviso-lgpd">Aderir é opcional, mas quem participa entra na comunicação da campanha e no fluxo dirigido. A prestação de contas do FPP mostra o retorno (art. 54 §2º).</div>
+    <button class="btn principal btn-grande" onclick="fecharModal()">Fechar</button>`);
+}
+function aderirCampanha(idx){
+  const c=fppInfo.campanhas[idx]; if(!c) return;
+  if(minhasCampanhas.has(c.nome)){ minhasCampanhas.delete(c.nome); c.aderiram=Math.max(0,(c.aderiram||1)-1); toast('Você saiu da campanha '+c.nome+'.'); }
+  else { minhasCampanhas.add(c.nome); c.aderiram=(c.aderiram||0)+1; if(typeof logAudit==='function') logAudit('aderiu à campanha do FPP: '+c.nome,'Lojista'); toast('Você está na campanha '+c.nome+'! O shopping te inclui na comunicação.'); }
+  verCampanhasLojista();
+}
+TELAS.fluxo = () => {
+  const fp=fluxoPublico, dm=fluxoDeltaMes(), conv=fluxoConv(), cx=fp.conexao;
+  const maxP=Math.max(...fp.porPiso.map(p=>p[1]),1);
+  const mil=n=>(n/1000).toFixed(0)+' mil';
+  return `<div class="tela on">
+  <div class="topo"><h1>${tIco('pessoas')}Fluxo de público</h1><p>Contadores do shopping · Junho/2026</p></div>
+  <div class="secao">O MÊS</div>
+  <div class="cards">
+    <div class="card ok"><div class="num">${mil(fp.mesTotal)}</div><div class="lbl">visitantes no mês</div></div>
+    <div class="card"><div class="num">${dm>=0?'+':''}${dm}%</div><div class="lbl">vs. mês anterior</div></div>
+  </div>
+  <div class="item"><div class="linha1"><span class="nome">${tIco('grafico')}Hoje</span><span class="chip cinza">${fp.hoje.toLocaleString('pt-BR')} pessoas</span></div>
+    <div class="sub" style="margin-top:4px">Horário de pico: <b>${fp.pico}</b> — o dado que sustenta horário de funcionamento, escala de segurança e negociação de aluguel.</div></div>
+  <div class="item" style="border-color:var(--verde)"><div class="linha1"><span class="nome">${tIco('grafico')}Conversão do shopping</span><span class="chip verde">${conv}%</span></div>
+    <div class="sub" style="margin-top:4px">${mil(fp.ticketsMes)} compras ÷ ${mil(fp.mesTotal)} visitantes — de cada 100 que entram, ${conv} compram. Cai/sobe com o mix e as campanhas.</div></div>
+  <div class="secao">POR PISO</div>
+  ${fp.porPiso.map(([nome,v])=>{const pc=Math.round(v/maxP*100); return `<div style="margin-top:10px"><div class="linha1"><span class="sub" style="margin:0; font-weight:600">${nome}</span><span class="sub" style="margin:0">${mil(v)}</span></div><div class="cat-trilha" style="margin-top:4px"><div class="cat-barra" style="width:${pc}%"></div></div></div>`;}).join('')}
+  <div class="secao">DE ONDE VEM O DADO</div>
+  <button class="item" style="width:100%; text-align:left; display:block" onclick="irPara('integracoes')">
+    <div class="linha1"><span class="nome">${tIco('cadeado')}Contadores de fluxo</span><span class="chip ${cx.status==='conectada'?'verde':'laranja'}">${cx.status}</span></div>
+    <div class="sub" style="margin-top:5px">${cx.fonte} · sincronizado ${cx.sync}. Alimenta o resultado das campanhas do FPP e a conversão de cada loja.</div></button>
+  <div class="aviso-lgpd">Contagem <b>anônima e agregada</b> — só o número de pessoas, sem identificar ninguém (câmera conta silhuetas, wi-fi conta dispositivos; sem captura de imagem ou dado pessoal — LGPD).</div>
+</div>`;
+};
 TELAS.mfaturar = () => {
   const f=faturamentos.find(x=>x.un===MORADOR.un)||faturamentos[faturamentos.length-1];
   const alug=f?alugPercent(f):0, porPerc=f&&f.valor*f.perc>f.minimo;
   return `<div class="tela on">
-  <div class="topo"><h1>Declarar faturamento</h1><p>${f?f.loja:''} · competência Junho/2026</p></div>
+  <div class="topo"><h1>${tIco('grafico')}Faturamento</h1><p>${f?f.loja:''} · competência Junho/2026</p></div>
+  ${painelDesempenho(f)}
+  ${f&&f.pdv
+    ? `<div class="secao">VENDAS · AUTOMÁTICO</div>
+  <div class="edi-card" style="border-left-color:var(--verde)">
+    <div class="linha1"><span class="nome">${tIco('grafico')}Capturado pelo seu PDV</span><span class="chip verde">via PDV</span></div>
+    <div class="sub" style="margin:8px 0 0">Vendas de junho: <b>${fmt(f.valor)}</b> — puxadas direto do PDV/adquirente, sem digitar nada. Aluguel devido: <b>${fmt(alug)}</b> ${porPerc?'(percentual)':'(mínimo)'}.</div>
+    <div class="sub" style="margin:8px 0 0">Algum valor errado? <button class="chip cinza" style="border:none; cursor:pointer" onclick="toast('No produto final: abre a conciliação por dia/terminal pra você contestar um lançamento específico.')">Contestar um valor</button></div>
+  </div>
+  <div class="aviso-lgpd">Com o PDV integrado você <b>não digita nada</b> — o sistema calcula o aluguel sozinho e acaba a subdeclaração. Seu faturamento é sigiloso; só a superintendência vê.</div>`
+    : `<div class="secao">DECLARAR</div>
   <div class="edi-card" style="border-left-color:var(--verde)">
     <div class="sub" style="margin:0 0 8px">Seu aluguel é o <b>maior</b> entre o mínimo (<b>${fmt(f?f.minimo:0)}</b>) e <b>${f?(f.perc*100).toFixed(0):0}%</b> das suas vendas do mês.</div>
     ${f&&f.status!=='pendente'
@@ -2298,7 +2565,8 @@ TELAS.mfaturar = () => {
   <label class="sub" style="display:block; margin:14px 0 4px">Faturamento de junho (R$)</label>
   <input id="fat-valor" inputmode="numeric" placeholder="ex.: 82000" value="${f&&f.valor?f.valor:''}" style="width:100%">
   <button class="btn principal btn-grande" style="margin-top:12px" onclick="declararFaturamento()">Declarar faturamento</button>
-  <div class="aviso-lgpd">Seu faturamento é sigiloso — só a superintendência vê, nunca outros lojistas. Você pode ser solicitado a comprovar as vendas (direito de verificação do contrato de locação).</div>
+  <button class="btn claro" style="width:100%; margin-top:8px" onclick="toast('No produto final: conecta o seu PDV/adquirente (Linx, Totvs, Cielo…) e o faturamento passa a vir automático — chega de digitar.')">${tIco('cadeado')}Conectar meu PDV — parar de digitar</button>
+  <div class="aviso-lgpd">Seu faturamento é sigiloso — só a superintendência vê, nunca outros lojistas. Você pode ser solicitado a comprovar as vendas (direito de verificação do contrato de locação).</div>`}
 </div>`;
 };
 function declararFaturamento(){
@@ -2431,7 +2699,7 @@ TELAS.mhome = () => {
   </div>
 
   <div class="comando">
-    <input id="cmd-home" placeholder='Peça ao ${nomeAssist}… "reserva o salão sábado"' onkeydown="if(event.key==='Enter')ediHome()">
+    <input id="cmd-home" placeholder='Peça ao ${nomeAssist}… "reserva um quiosque pra promoção"' onkeydown="if(event.key==='Enter')ediHome()">
 <button class="mic" style="background:transparent" aria-label="Falar com o ${nomeAssist} por voz" onclick="toast('No produto final: fale e o ${nomeAssist} resolve')">${ediMini}</button>
   </div>
   <div id="mhome-resposta"></div>
@@ -2446,10 +2714,10 @@ TELAS.mhome = () => {
       <div class="linha1"><span class="nome">${tIco('checklist')}Assembleia 25/06 — votação aberta</span><span class="chip ${votou?'verde':proc?'cinza':'laranja'}">${votou?'voto enviado':proc?'procuração':'votar agora ›'}</span></div>
       <div class="sub" style="margin-top:5px">${votou?'Seu voto está registrado — pode alterar até '+j.fecha+'.':proc?'Você deu procuração para '+proc+'.':'Vote à distância pela pauta — aberta até '+j.fecha+', vale como presença.'}</div></button>`;})()}
   ${minhaEnc?`<div class="item" style="border-color:var(--laranja)">
-    <div class="linha1"><span class="nome">${tIco('pacote')}Mercadoria na portaria!</span><span class="chip cinza">${minhaEnc.transp}</span></div>
+    <div class="linha1"><span class="nome">${tIco('pacote')}Entrega na doca</span><span class="chip cinza">${minhaEnc.transp}</span></div>
     <div style="display:flex; gap:10px; align-items:center; margin-top:8px">
       <div style="flex:0 0 92px">${fotoPacote(minhaEnc)}</div>
-      <div class="sub" style="margin:0">Chegou ${minhaEnc.chegada} · é esta caixa, ao lado</div>
+      <div class="sub" style="margin:0">Chegou ${minhaEnc.chegada} na doca de recebimento · conferida e liberada pra retirada</div>
     </div></div>`:''}
   ${reforma?`<div class="item" style="border-color:var(--verde)">
     <div class="linha1"><span class="nome">${tIco('martelo')}Sua reforma foi aprovada!</span><span class="chip verde">obra liberada</span></div>
@@ -2457,6 +2725,14 @@ TELAS.mhome = () => {
   ${minhas.length?`<div class="item"><div class="linha1"><span class="nome">Próxima reserva: ${minhas[0].area}</span><span class="chip verde">${String(minhas[0].d).padStart(2,'0')}/${String(minhas[0].m).padStart(2,'0')}</span></div></div>`:''}
   <button class="item" style="width:100%; text-align:left; display:block" onclick="minhaTaxa()"><div class="linha1"><span class="nome">${tIco('cifrao')}Meus encargos de junho</span><span style="display:flex; align-items:center; gap:6px"><span class="chip ${MORADOR.emDia?'verde':'laranja'}">${MORADOR.emDia?'paga':'em aberto'}</span><span style="color:var(--cinza)">›</span></span></div>
 <div class="sub" style="margin-top:4px">${MORADOR.emDia?'Pago em 03/06 · toque pra comprovante ou 2ª via':'Toque pra gerar o PIX / 2ª via'}${MORADOR.papel==='operadora'?' · como operadora, só despesas ordinárias':''}</div></button>
+  <button class="item" style="width:100%; text-align:left; display:block" onclick="irPara('mfaturar')">
+    <div class="linha1"><span class="nome">${tIco('grafico')}Seu desempenho</span><span class="chip verde">ver ›</span></div>
+    <div class="sub" style="margin-top:4px">Suas vendas do mês, vendas/m² e como você está vs a média do seu segmento no shopping.</div></button>
+  ${(()=>{const prox=fppInfo.campanhas.find(c=>c.status==='andamento'||c.status==='planejada'); if(!prox) return '';
+    const aderi=minhasCampanhas.has(prox.nome);
+    return `<button class="item" style="width:100%; text-align:left; display:block; border-color:var(--verde)" onclick="verCampanhasLojista()">
+      <div class="linha1"><span class="nome">${tIco('grafico')}Campanha: ${prox.nome}</span><span class="chip ${aderi?'verde':'laranja'}">${aderi?'participando':'participar ›'}</span></div>
+      <div class="sub" style="margin-top:5px">${prox.periodo} · ${prox.acao||'ação do shopping nas datas comerciais'}. O shopping investe do FPP; você adere e vende mais.</div></button>`;})()}
 
   <div class="secao">ESTA SEMANA</div>
   ${enqueteHtml()}
@@ -2464,8 +2740,8 @@ TELAS.mhome = () => {
 
   <div class="secao">ATALHOS</div>
   <div class="acesso">
-    <button onclick="irPara('mreservar')"><span class="ic">${ico('calendario')}</span><b>Reservar</b><small>salão, quiosque</small></button>
-    <button onclick="autorizarVisita()"><span class="ic">${ico('porta')}</span><b>Autorizar visitante</b><small>QR direto na portaria</small></button>
+    <button onclick="irPara('mreservar')"><span class="ic">${ico('calendario')}</span><b>Reservar</b><small>quiosque, ilha</small></button>
+    <button onclick="autorizarVisita()"><span class="ic">${ico('porta')}</span><b>Autorizar visitante</b><small>QR direto na segurança</small></button>
     <button onclick="irPara('mfalar')"><span class="ic">${ico('balao')}</span><b>Falar com o superintendente</b><small>sugestão, reclamação</small></button>
     <button onclick="verTransparencia()"><span class="ic">${ico('cifrao')}</span><b>Pra onde vai meu dinheiro</b><small>contas do shopping</small></button>
   </div>
@@ -2487,27 +2763,27 @@ function verTransparencia(){
     </div>
     <div class="item" style="border-color:${saldo>=0?'var(--verde)':'var(--vermelho)'}; background:${saldo>=0?'var(--verde-claro)':'var(--vermelho-claro)'}; margin:10px 0">
       <div class="linha1"><span class="nome">Resultado do mês</span><span style="font-weight:800; color:${saldo>=0?'var(--verde-escuro)':'var(--vermelho)'}">${saldo>=0?'+ ':'− '}${fmt(Math.abs(saldo))}</span></div>
-      <div class="sub" style="margin-top:3px">${saldo>=0?'Sobrou — reforça o caixa/fundo.':'Faltou — coberto pelo caixa.'} Fundo de reserva hoje: <b>${fmt(38400)}</b>.</div>
+      <div class="sub" style="margin-top:3px">${saldo>=0?'Sobrou — reforça o caixa/reserva.':'Faltou — coberto pelo caixa.'} Reserva de contingência hoje: <b>${fmt(38400)}</b>.</div>
     </div>
     <div class="sub" style="font-weight:700; margin:10px 0 6px">Pra onde foi</div>
     ${cats.map(o=>{const pct=Math.round(o.real/totalDesp*100);
       return `<div style="margin-top:8px"><div class="linha1"><span class="sub" style="margin:0; font-weight:600">${o.c}</span><span class="sub" style="margin:0">${fmt(o.real).replace(',00','')} · ${pct}%</span></div>
       <div class="cat-trilha" style="margin-top:4px"><div class="cat-barra" style="width:${pct}%"></div></div></div>`;}).join('')}
     <div class="item" style="margin-top:12px"><div class="linha1"><span class="nome">${tIco('check')}Seus encargos de junho</span><span class="chip ${MORADOR.emDia?'verde':'laranja'}">${MORADOR.emDia?'paga':'em aberto'}</span></div>
-      <div class="sub">${MORADOR.papel==='operadora'?'Como operadora, você paga as despesas ordinárias; fundo e obras são do titular.':'Inclui o rateio ordinário + fundo de reserva.'}</div></div>
+      <div class="sub">${MORADOR.papel==='operadora'?'Como operadora, você paga as despesas ordinárias; reserva e obras são do titular.':'Inclui o rateio ordinário + reserva de contingência.'}</div></div>
     <div class="botoes"><button class="btn claro" onclick="fecharModal();mesGraf=4;verBalancete()"><span class="ico-in">${ico('grafico')}</span> Ver balancete completo (com notas)</button></div>
     <div class="aviso-lgpd">Você vê o agregado do shopping e a sua própria taxa. Quem deve a quem não aparece pra lojista vizinho — a inadimplência nominal fica com o superintendente e o conselho (LGPD).</div>
     <button class="btn principal btn-grande" onclick="fecharModal()">Entendi</button>`);
 }
 function centralPrivacidade(){
   const dados=[
-    ['Nome e loja','Superintendente, portaria e administradora','identifica você no shopping'],
-    ['Telefone / e-mail','Superintendente (avisos e cobrança)','a portaria não vê seu contato'],
-    ['Veículos e pets','Segurança e superintendente','liberar estacionamento e registrar'],
+    ['Nome e loja','Superintendente, segurança e administradora','identifica você no shopping'],
+    ['Telefone / e-mail','Superintendente (avisos e cobrança)','a segurança não vê seu contato'],
+    ['Veículos','Segurança e superintendente','liberar estacionamento e registrar'],
     ['Visitantes que você autoriza','Segurança e superintendente','controle de acesso'],
-    ['Encomendas','Segurança e você','avisar e comprovar a retirada'],
+    ['Entregas na doca','Segurança e você','avisar e comprovar a retirada'],
     ['Confirmação de leitura de avisos','Superintendente','prova de convocação de assembleia'],
-    ['Reservas de espaços comerciais','Superintendente e portaria','evitar conflito de horário'],
+    ['Reservas de espaços comerciais','Superintendente e segurança','evitar conflito de horário'],
     ['Voto em enquete','Ninguém — anônimo','você vê só o resultado agregado'],
     ['Situação da seus encargos','Superintendente e conselho','cobrança; lojista vizinho não vê'],
   ];
@@ -2822,9 +3098,12 @@ TELAS.ccontas = () => {
   <div class="cards">
     <button class="card ok" onclick="mesGraf=${mesCC-1};verBalancete()"><div class="num">${fmt(F.rec)}</div><div class="lbl">receitas de ${F.nome.toLowerCase()} ›</div></button>
     <button class="card" onclick="mesGraf=${mesCC-1};verBalancete()"><div class="num">${fmt(F.desp)}</div><div class="lbl">despesas de ${F.nome.toLowerCase()} ›</div></button>
-    <button class="card ok" onclick="mesGraf=${mesCC-1};verBalancete()"><div class="num">${fmt(38400)}</div><div class="lbl">fundo de reserva ›</div></button>
+    <button class="card ok" onclick="mesGraf=${mesCC-1};verBalancete()"><div class="num">${fmt(38400)}</div><div class="lbl">reserva de contingência ›</div></button>
 <button class="card aten" onclick="verInadimplenciaConselho()"><div class="num">${Math.round(inadimplentes.length/60*100)}%</div><div class="lbl">inadimplência (${inadimplentes.length} lojas) ›</div></button>
   </div>
+  <button class="item" style="width:100%; text-align:left; display:block; margin:0 0 14px" onclick="irPara('fpp')">
+    <div class="linha1"><span class="nome">${tIco('grafico')}Fundo de Promoção — ROI</span><span class="chip verde">ver ›</span></div>
+    <div class="sub" style="margin-top:4px">Onde o FPP foi aplicado (datas comerciais) e o retorno em fluxo e vendas — com comprovante.</div></button>
   <div class="item" style="border-color:${saldo>=0?'var(--verde)':'var(--vermelho)'}; background:${saldo>=0?'var(--verde-claro)':'var(--vermelho-claro)'}; margin-bottom:14px">
     <div class="linha1"><span class="nome">${tIco('cifrao')}Resultado de ${F.nome.toLowerCase()}</span><span style="font-weight:800; font-size:1.05rem; color:${saldo>=0?'var(--verde-escuro)':'var(--vermelho)'}">${saldo>=0?'+ ':'− '}${fmt(Math.abs(saldo))}</span></div>
     <div class="sub" style="margin-top:3px">Receitas ${fmt(F.rec).replace(',00','')} − despesas ${fmt(F.desp).replace(',00','')} = ${saldo>=0?'superávit':'déficit'} do mês.</div>
@@ -3353,8 +3632,8 @@ function ataRascunhoHtml(){
   const disc=['contas aprovadas após esclarecer o reparo da bomba','chapa única eleita, sem oposição','taxa mantida; reajuste rejeitado','debate sobre o custo da cobertura, com divergência'];
   const linhas=a.pauta.map((p,i)=>{const v=votosItem(i); const f=avaliarFinal(p,v,presentesEfetivo()); if(f.flag) flags.push(`Item ${i+1} (${p.t}) — ${f.msg}`);
     return `${i+1}. ${p.t}\n   Discussão: ${disc[i]||'—'}.\n   ${f.resultado}${f.flag?`\n   ${nomeAssist}: ${f.msg}`:''}`;}).join('\n\n');
-  if(a.offPauta) flags.push('Tema "câmeras na estacionamento" foi levantado fora da pauta do edital — a assembleia não delibera matéria não convocada (o estatuto da associação). Registre como sugestão para a próxima pauta, não como deliberação.');
-  const ata=`ATA DA ASSEMBLEIA GERAL ORDINÁRIA — ${COND.nome}\n\nAos 25/06/2026, às 20h (2ª chamada), no ${a.local}, presentes ${presentesEfetivo()} lojas (${a.presentesN} na sala + ${remotosCount()} por voto remoto), ${procuracoesCount()} por procuração:\n\n${linhas}${a.offPauta?`\n\nOUTROS: tema "câmeras na estacionamento" levantado fora da pauta — não deliberado.`:''}\n\nNada mais havendo, lavrou-se a presente ata.\nPresidente da mesa: ____________   Secretário: ____________\n\n[Rascunho gerado automaticamente a partir da gravação e dos votos — revisar, completar e assinar.]`;
+  if(a.offPauta) flags.push('Tema "câmeras no estacionamento" foi levantado fora da pauta do edital — a assembleia não delibera matéria não convocada (o estatuto da associação). Registre como sugestão para a próxima pauta, não como deliberação.');
+  const ata=`ATA DA ASSEMBLEIA GERAL ORDINÁRIA — ${COND.nome}\n\nAos 25/06/2026, às 20h (2ª chamada), no ${a.local}, presentes ${presentesEfetivo()} lojas (${a.presentesN} na sala + ${remotosCount()} por voto remoto), ${procuracoesCount()} por procuração:\n\n${linhas}${a.offPauta?`\n\nOUTROS: tema "câmeras no estacionamento" levantado fora da pauta — não deliberado.`:''}\n\nNada mais havendo, lavrou-se a presente ata.\nPresidente da mesa: ____________   Secretário: ____________\n\n[Rascunho gerado automaticamente a partir da gravação e dos votos — revisar, completar e assinar.]`;
   return `<div class="item" style="border-color:${flags.length?'var(--laranja)':'var(--verde)'}; margin-top:14px">
     <div class="linha1"><span class="nome">${tIco('alerta')}Conferência do ${nomeAssist}</span><span class="chip ${flags.length?'laranja':'verde'}">${flags.length?flags.length+' alerta'+(flags.length>1?'s':''):'sem alertas'}</span></div>
     ${flags.length?flags.map(f=>`<div class="sub" style="margin-top:7px; color:var(--texto)"><span style="color:var(--laranja); display:inline-flex; vertical-align:-3px">${tIco('alerta')}</span> ${f}</div>`).join(''):'<div class="sub" style="margin-top:6px">Nenhuma deliberação fora de conformidade detectada.</div>'}</div>
@@ -3389,7 +3668,7 @@ function ataAssembleiaHtml(){
       <div class="sub" style="margin-top:3px">${a.presentesN} na sala + <b>${remotosCount()} por voto remoto (app)</b>${procuracoesCount()?` · ${procuracoesCount()} procuração(ões)`:''} — de 60 lojas. O voto remoto entra na apuração de cada item, com peso por coeficiente de rateio.</div></div>
     <div class="sub" style="margin:12px 0 6px"><b>Votação por item</b> — presenciais nos botões; remotos somam sozinhos. O ${nomeAssist} confere o quórum ao vivo</div>
     ${itens}
-    <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; color:var(--texto); margin:10px 0"><input type="checkbox" ${a.offPauta?'checked':''} onclick="assembleia.offPauta=!assembleia.offPauta;atualizar()" style="width:auto; margin:3px 0 0"> <span>Registrar um tema levantado <b>fora da pauta</b> (ex.: câmeras na estacionamento) <span class="sub" style="margin:0">— pra ver o ${nomeAssist} alertar que não é deliberável</span></span></label>
+    <label style="display:flex; align-items:flex-start; gap:8px; font-weight:400; color:var(--texto); margin:10px 0"><input type="checkbox" ${a.offPauta?'checked':''} onclick="assembleia.offPauta=!assembleia.offPauta;atualizar()" style="width:auto; margin:3px 0 0"> <span>Registrar um tema levantado <b>fora da pauta</b> (ex.: câmeras no estacionamento) <span class="sub" style="margin:0">— pra ver o ${nomeAssist} alertar que não é deliberável</span></span></label>
     <button class="btn principal btn-grande" onclick="assembleia.ataGerada=true;atualizar()"><span class="ico-in">${ico('contrato')}</span> Gerar ata-rascunho</button>
     ${a.ataGerada?ataRascunhoHtml():''}`;
 }
@@ -3509,7 +3788,7 @@ TELAS.livro = () => `<div class="tela on">
 function novaLivro(){
   window._lvFoto=false;
   abrirModal(`<h3>${tIco('caderno')}Registrar no livro</h3>
-    <div class="sub" style="margin-bottom:10px; display:flex; align-items:flex-start; gap:6px">${tIco('cadeado')}<span>Fale ou fotografe — leva segundos. Funciona <b>sem sinal</b>: na estacionamento ou casa de máquinas, registra e sincroniza sozinho quando a internet voltar.</span></div>
+    <div class="sub" style="margin-bottom:10px; display:flex; align-items:flex-start; gap:6px">${tIco('cadeado')}<span>Fale ou fotografe — leva segundos. Funciona <b>sem sinal</b>: no estacionamento ou casa de máquinas, registra e sincroniza sozinho quando a internet voltar.</span></div>
     <button class="btn principal btn-grande" id="lv-voz" onclick="ditarLivro()" style="display:flex; align-items:center; justify-content:center; gap:10px">${tIco('microfone')}Falar a ocorrência</button>
     <label style="margin-top:12px">O que aconteceu?</label>
     <textarea id="lv-t" rows="3" placeholder="Toque em Falar — ou escreva aqui" style="width:100%; border:1.5px solid var(--borda); border-radius:12px; padding:11px 13px; font-family:inherit; font-size:.95rem; color:var(--texto); resize:vertical; margin:2px 0 0; box-sizing:border-box"></textarea>
@@ -3582,7 +3861,7 @@ function verBalancete(){
     </div>
     <div class="item" style="margin-bottom:12px">
       <div class="linha1"><span class="nome">${M.m.replace('*','')}/2026${parcial?' · em andamento':''}</span><span class="chip ${saldo>=0?'verde':'vermelho'}">saldo ${saldo>=0?'+':'−'} ${fmt(Math.abs(saldo))}</span></div>
-      <div class="sub">receitas ${fmt(M.rec)} · despesas ${fmt(M.desp)} · fundo de reserva: ${fmt(38400)}</div>
+      <div class="sub">receitas ${fmt(M.rec)} · despesas ${fmt(M.desp)} · reserva de contingência: ${fmt(38400)}</div>
       <div class="sub" style="font-weight:700; margin:10px 0 2px">Despesas por categoria${parcial?' (parcial)':''}</div>
       ${M.cat.map((pct,i)=>`
         <div style="display:flex; justify-content:space-between; gap:8px; font-size:.85rem; margin-top:7px"><span>${CATS[i]}</span><span style="white-space:nowrap; font-weight:700">${pct}% · ${fmt(Math.round(M.desp*pct/100)).replace(',00','')}</span></div>
@@ -3617,7 +3896,7 @@ function verPrestacao(finKey){
 
 /* ===== ZELADOR: rotina, triagem e estoque (Seu Carlos approved) ===== */
 let rotina = [
-  {t:'Ronda geral das espaços comerciais', freq:'Diária', feito:true,  resp:'Carlos (facilities)'},
+  {t:'Ronda geral dos espaços comerciais', freq:'Diária', feito:true,  resp:'Carlos (facilities)'},
   {t:'Leitura do nível da caixa d’água', freq:'Diária', feito:true, resp:'Carlos (facilities)', leitura:'14.200 L'},
   {t:'Conferência de portões e iluminação', freq:'Diária', feito:false, resp:'João (porteiro dia)'},
   {t:'Limpeza hall, elevadores e escadas', freq:'Diária', feito:false, resp:'Maria (auxiliar)'},
@@ -3737,10 +4016,12 @@ let integracoes = [
   {fam:'Financeiro', nome:'PIX / banco', sub:'Gera o PIX dos encargos e dá baixa automática quando o lojista paga.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira'},
   {fam:'Financeiro', nome:'Boleto registrado', sub:'Emissão e conciliação de boletos bancários.', status:'pendente', det:'Falta o convênio do banco — aguardando a administradora liberar.', autor:'—', quando:'—', dono:'carteira'},
   {fam:'Financeiro', nome:'ERP contábil', sub:'Exporta os lançamentos pro sistema contábil da administradora.', status:'conectada', sync:'ontem', autor:'Administradora', quando:'12/05', dono:'carteira'},
+  {fam:'Financeiro', nome:'Vendas (PDV / adquirente)', sub:'Captura o faturamento das lojas direto do PDV/hub de varejo — sem digitação e sem subdeclaração; o lojista só confirma.', status:'conectada', sync:'há 20 min', autor:'Administradora', quando:'22/05', dono:'carteira'},
   {fam:'Segurança & Acesso', nome:'Control iD iDFace', sub:'Facial + cartão; o sistema provisiona e revoga as credenciais sozinho.', status:'conectada', sync:'há 2 min', autor:'Superintendente', quando:'20/05', dono:'condominio'},
   {fam:'Segurança & Acesso', nome:'Cancela veicular (TAG/placa)', sub:'Leitura de TAG e placa na entrada da estacionamento.', status:'conectada', sync:'há 9 min', autor:'Superintendente', quando:'20/05', dono:'condominio'},
   {fam:'Predial / IoT', nome:'Telemetria de elevador', sub:'O sensor da conservadora dispara o aviso de parada automaticamente.', status:'erro', det:'Sensor da Piso B sem responder desde ontem — o aviso manual segue funcionando.', autor:'Superintendente', quando:'18/05', dono:'condominio'},
-  {fam:'Predial / IoT', nome:'CFTV / câmeras', sub:'Liga o gravador de imagens aos eventos de portaria.', status:'naoconfig', autor:'—', quando:'—', dono:'condominio'},
+  {fam:'Predial / IoT', nome:'CFTV / câmeras', sub:'Liga o gravador de imagens aos eventos de acesso.', status:'naoconfig', autor:'—', quando:'—', dono:'condominio'},
+  {fam:'Predial / IoT', nome:'Contadores de fluxo (people counting)', sub:'Contagem anônima de público por câmera/wi-fi — alimenta a conversão do lojista e o ROI do FPP.', status:'conectada', sync:'há 8 min', autor:'Superintendente', quando:'22/05', dono:'condominio'},
   {fam:'Administradora / ERP', nome:'Sistema da administradora', sub:'Sincroniza carteira, taxas e prestação de contas com o ERP.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira'},
   {fam:'Documentos', nome:'Assinatura digital', sub:'Atas e comunicados assinados com validade jurídica.', status:'pendente', det:'Plano contratado — falta o primeiro signatário confirmar o cadastro.', autor:'Superintendente', quando:'21/05', dono:'condominio'},
 ];
@@ -3939,13 +4220,13 @@ const CONFIG_INT={
    campos:[['Banco emissor','—','select'],['Convênio / carteira','aguardando liberação','ro'],['Cedente','Shopping Pátio Central','ro'],['Encargos de mora','conforme o contrato de locação (Lei 8.245/91)','ro']]},
  'ERP contábil':{passos:['Escolher o sistema contábil da administradora','Mapear o plano de contas','Definir a frequência de exportação'],
    campos:[['Sistema contábil','Domínio Sistemas','select'],['Plano de contas','mapeado','ro'],['Formato','CSV / OFX','select'],['Frequência','diária','select']]},
- 'Control iD iDFace':{passos:['Instalar o conector edge na portaria','Descobrir os controladores na rede','Testar o provisionamento de uma credencial'],
+ 'Control iD iDFace':{passos:['Instalar o conector edge no controle de acesso','Descobrir os controladores na rede','Testar o provisionamento de uma credencial'],
    campos:[['Endereço do controlador','192.168.0.10','ro'],['Modelo','Control iD iDFace','select'],['Provisionar/revogar automático','ligado','toggle'],['Modos de acesso','facial · cartão · QR · PIN','ro']]},
  'Cancela veicular (TAG/placa)':{passos:['Conectar a leitora de TAG/LPR da estacionamento','Vincular as faixas/estacionamento','Sincronizar a lista de placas com as lojas'],
    campos:[['Leitora','TAG (UHF) + LPR','select'],['Estacionamento / faixas','G1 · G2','ro'],['Lista de placas','sincronizada com as lojas','toggle']]},
  'Telemetria de elevador':{passos:['Selecionar a conservadora/fabricante','Configurar o webhook/sensor por piso','Testar o disparo de parada'],
    campos:[['Conservadora / fabricante','Atlas Schindler (Ahead)','select'],['Pisos cobertas','Piso A · Piso B','ro'],['Disparo automático de aviso','ligado','toggle']]},
- 'CFTV / câmeras':{passos:['Conectar o gravador (NVR)','Escolher os canais por evento de portaria','Definir a retenção das imagens'],
+ 'CFTV / câmeras':{passos:['Conectar o gravador (NVR)','Escolher os canais por evento de acesso','Definir a retenção das imagens'],
    campos:[['Gravador (NVR)','—','select'],['Canais por evento','entrada · estacionamento','ro'],['Retenção','30 dias','select']]},
  'Sistema da administradora':{passos:['Autenticar no ERP da administradora','Selecionar o que sincroniza','Definir a frequência'],
    campos:[['ERP da administradora','Superlógica','select'],['Sincroniza','carteira · taxas · prestação de contas','ro'],['Frequência','a cada 1 h','select']]},
@@ -4001,7 +4282,7 @@ TELAS.integracoes = () => {
   const intro = admContexto
     ? `Você está vendo as integrações de <b>${admContexto.nome}</b>. O padrão vem da carteira; aqui dá pra sobrescrever o que é específico do shopping.`
     : perfil==='administradora'
-    ? `Padrão da <b>carteira</b> — vale para todos os shoppings. Cada shopping sobrescreve o que é local (portaria, elevador, câmeras).`
+    ? `Padrão da <b>carteira</b> — vale para todos os shoppings. Cada shopping sobrescreve o que é local (acesso, elevador, câmeras).`
     : `Tudo que o ${MARCA} conecta, num lugar só — com status, última sincronização e quem ligou.`;
   return `<div class="tela on">
     <div class="topo"><h1>${tIco('importar')}Integrações</h1><p>A fonte da verdade da configuração</p></div>
@@ -4012,7 +4293,7 @@ TELAS.integracoes = () => {
       ${nconf?`<span class="chip cinza" style="border:none">${nconf} não configurada${nconf>1?'s':''}</span>`:''}
     </div>
     ${fams.map(f=>`<h2>${f}</h2>${integracoes.filter(i=>i.fam===f).map(intCard).join('')}`).join('')}
-    <div class="aviso-lgpd">Quem gere o quê: integrações técnicas da carteira (WhatsApp, banco, ERP) ficam com a <b>administradora</b>; as do shopping (portaria, elevador, câmeras) com o <b>superintendente</b>. Toda conexão ou alteração é registrada na trilha de auditoria.</div>
+    <div class="aviso-lgpd">Quem gere o quê: integrações técnicas da carteira (WhatsApp, banco, ERP) ficam com a <b>administradora</b>; as do shopping (acesso, elevador, câmeras) com o <b>superintendente</b>. Toda conexão ou alteração é registrada na trilha de auditoria.</div>
   </div>`;
 };
 function integracoesCardSindico(){
@@ -4021,7 +4302,7 @@ function integracoesCardSindico(){
   const conect=integracoes.filter(i=>i.status==='conectada').length;
   return `<button class="item" style="width:100%; text-align:left; display:block; margin-top:6px" onclick="irPara('integracoes')">
     <div class="linha1"><span class="nome">${tIco('importar')}Integrações</span><span class="chip ${pend?'laranja':'verde'}">${pend?pend+' pendência'+(pend>1?'s':''):conect+' conectadas'} ›</span></div>
-    <div class="sub" style="margin-top:5px">WhatsApp, PIX/banco, portaria, elevador, ERP — num lugar, com status e quem conectou.</div></button>`;
+    <div class="sub" style="margin-top:5px">WhatsApp, PIX/banco, segurança, elevador, ERP — num lugar, com status e quem conectou.</div></button>`;
 }
 /* ===== UNIDADES & VÍNCULO DE OCUPAÇÃO (superintendente/administradora): ficha + trocar operador ===== */
 function unidadesCardSindico(){
@@ -4064,8 +4345,8 @@ function listaUnidades(){
     <div id="unid-cnt" class="sub" style="margin-bottom:6px; color:var(--cinza)">${unidContagem(ents)}</div>
     <div id="unid-lista">${unidLinhasHtml(ents)}</div>`);
 }
-const FRACAO_BASE=1.15; /* fração de uma loja padrão — base do rateio proporcional na demo */
-function taxaFracao(u){ return Math.round(COND.taxa*((u.fracao||FRACAO_BASE)/FRACAO_BASE)); }
+const COEF_BASE=1.15; /* coeficiente de uma loja padrão — base do rateio proporcional na demo (primitivo canônico: coef) */
+function taxaFracao(u){ return Math.round(COND.taxa*((u.coef||COEF_BASE)/COEF_BASE)); }
 function verUnidade(un){
   const u=lojas[un]; if(!u) return;
   const encPend=encomendas.filter(e=>e.un===un&&e.status==='aguardando').length;
@@ -4085,15 +4366,15 @@ function verUnidade(un){
       <span style="display:flex; align-items:center; gap:6px">${tIco('pacote')}Encomendas aguardando: ${encPend}</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('cifrao')}Financeiro: ${inad?`<b style="color:var(--vermelho)">${inad.dias} dias em atraso</b>`:'em dia'}</span>
     </div></div>
-    ${u.fracao?`<div class="sub" style="margin:0 0 4px"><b>Coeficiente de rateio, voto e taxa</b></div>
-    <div class="item" style="padding:11px 13px; ${u.duplex?'border-color:var(--verde);':''}"><div class="sub" style="margin:0; line-height:1.7; display:flex; flex-direction:column; gap:6px">
-      <span style="display:flex; align-items:flex-start; gap:7px">${tIco('balanca')}<span>Coeficiente de rateio: <b>${u.fracao.toFixed(2)}%</b>${u.duplex?` <span class="chip verde" style="border:none; white-space:nowrap">duplex · ${u.pavimentos}</span>`:''}</span></span>
-      <span style="display:flex; align-items:flex-start; gap:7px">${tIco('prancheta')}<span>Assembleia: <b>1 voto</b> — peso pela coeficiente de rateio</span></span>
+    ${u.coef?`<div class="sub" style="margin:0 0 4px"><b>Coeficiente de rateio, voto e taxa</b></div>
+    <div class="item" style="padding:11px 13px"><div class="sub" style="margin:0; line-height:1.7; display:flex; flex-direction:column; gap:6px">
+      <span style="display:flex; align-items:flex-start; gap:7px">${tIco('balanca')}<span>Coeficiente de rateio: <b>${u.coef.toFixed(2)}</b></span></span>
+      <span style="display:flex; align-items:flex-start; gap:7px">${tIco('prancheta')}<span>Assembleia: <b>1 voto</b> — peso pelo coeficiente de rateio</span></span>
       ${(()=>{const tf=taxaFracao(u); return tf===COND.taxa
-        ? `<span style="display:flex; align-items:flex-start; gap:7px">${tIco('cifrao')}<span>Taxa: <b>${fmt(COND.taxa)}</b> — igual nos dois rateios (fração da loja padrão)</span></span>`
-        : `<span style="display:flex; align-items:flex-start; gap:7px">${tIco('cifrao')}<span>Taxa: <b>${fmt(tf)}</b> no rateio por fração · <b>${fmt(COND.taxa)}</b> no igualitário</span></span>`;})()}
+        ? `<span style="display:flex; align-items:flex-start; gap:7px">${tIco('cifrao')}<span>Taxa: <b>${fmt(COND.taxa)}</b> — igual nos dois rateios (coeficiente da loja padrão)</span></span>`
+        : `<span style="display:flex; align-items:flex-start; gap:7px">${tIco('cifrao')}<span>Taxa: <b>${fmt(tf)}</b> no rateio por coeficiente · <b>${fmt(COND.taxa)}</b> no igualitário</span></span>`;})()}
     </div></div>
-    ${u.duplex?`<div class="aviso-lgpd" style="margin:8px 0 10px">Duplex é <b>uma loja só</b> (uma matrícula em ${u.pavimentos}): conta como <b>1 voto</b> na assembleia — com peso maior porque a coeficiente de rateio é maior — e paga <b>uma taxa</b> proporcional à fração (Lei 8.245/91 art. 54, I). Se fossem <b>duas lojas unidas</b> sem unificação no cartório, seriam <b>duas lojas</b>: dois votos e duas taxas. O Giro segue a <b>matrícula/contrato de locação</b>, não a planta.</div>`:''}`:''}
+    `:''}
     ${mudancaHtml(un)}
     <div class="botoes" style="margin-top:12px">
       ${!u.app?`<button class="btn principal" style="flex:0 0 auto; padding:11px 16px" onclick="ativarMorador('${un}')">${tIco('chave')}Ativar acesso</button>`:''}
@@ -4113,7 +4394,7 @@ function toggleMudanca(un,k){ const u=lojas[un]; u.mudanca=u.mudanca||{agenda:fa
 function pinUnidade(un){ return (''+(un.charCodeAt(0)*7+un.length*131+97)).slice(-4); }
 function boasVindasMsg(un,pin){
   const u=lojas[un]; const primeiro=(u.ocupante||'').split(' ')[0];
-  return `Olá, ${primeiro}! Seja bem-vindo(a) ao ${COND.nome}.\n\nVocê é o novo lojista da loja ${un}. Pra começar, ative o app do lojista — é por ele que você fala com a portaria, libera visitantes, recebe avisos e encomendas, reserva as espaços comerciais e acompanha os boletos.\n\nToque no link abaixo pra ativar. Acesso provisório, válido por 48h: PIN ${pin}.\n\nQualquer dúvida, é só chamar. — Administração do ${COND.nome}`;
+  return `Olá, ${primeiro}! Seja bem-vindo(a) ao ${COND.nome}.\n\nVocê é o novo lojista da loja ${un}. Pra começar, ative o app do lojista — é por ele que você fala com a segurança, libera visitantes, recebe avisos, acompanha entregas na doca, reserva espaços comerciais e acompanha os boletos.\n\nToque no link abaixo pra ativar. Acesso provisório, válido por 48h: PIN ${pin}.\n\nQualquer dúvida, é só chamar. — Administração do ${COND.nome}`;
 }
 function ativarMorador(un){
   const u=lojas[un];
@@ -4124,7 +4405,7 @@ function ativarMorador(un){
     <div class="item"><div class="sub" style="margin:0; line-height:2; display:flex; flex-direction:column; gap:2px">
       <span style="display:flex; align-items:center; gap:6px">${tIco('check')}Confirma identidade e cria o login do app</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('check')}Aceito contrato de locação e regimento (consentimento LGPD)</span>
-      <span style="display:flex; align-items:center; gap:6px">${tIco('cadeado')}Agenda o cadastro facial na portaria</span>
+      <span style="display:flex; align-items:center; gap:6px">${tIco('cadeado')}Agenda o cadastro facial na segurança</span>
     </div></div>
     <div class="sub" style="margin:12px 0 4px"><b>${tIco('megafone')}Comunicado de boas-vindas</b> — vai junto com o link de ativação:</div>
     <div class="item" style="white-space:pre-wrap; font-size:.85rem; line-height:1.55">${msg.replace(/</g,'&lt;')}</div>
@@ -4136,7 +4417,7 @@ function ativarMorador(un){
 function confirmarAtivacao(un){
   const u=lojas[un]; u.app=true; if(u.acesso.indexOf('facial')<0) u.acesso.push('facial');
   logAudit(`ativou o acesso do lojista da loja ${un} (${u.ocupante})`,'Superintendente');
-  fecharModal(); atualizar(); toast(`${u.ocupante} ativou o app — credencial provisionada na portaria.`);
+  fecharModal(); atualizar(); toast(`${u.ocupante} ativou o app — credencial provisionada na segurança.`);
 }
 function trocarOperador(un){
   const u=lojas[un];
@@ -4151,7 +4432,7 @@ function trocarOperador(un){
       ${tIco('cadeado')}Acesso de ${u.ocupante} revogado · novo provisionado<br>
       ${tIco('check')}App do lojista antigo encerrado · convite pro novo<br>
       ${tIco('megafone')}Avisos passam a ir pro novo lojista<br>
-      ${tIco('pacote')}${encPend} mercadoria(s) pendente(s) sinalizada(s) na portaria pra devolver/entregar</div></div>
+      ${tIco('pacote')}${encPend} mercadoria(s) pendente(s) sinalizada(s) na doca pra devolver/entregar</div></div>
     <button class="btn principal btn-grande" onclick="confirmarTrocaOperador('${un}')">Confirmar troca</button>`);
 }
 function confirmarTrocaOperador(un){
@@ -4170,7 +4451,7 @@ function confirmarTrocaOperador(un){
       <span style="display:flex; align-items:center; gap:6px">${tIco('cadeado')}Acesso de ${antigo} revogado</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('check')}App do lojista antigo encerrado</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('megafone')}Avisos redirecionados pro novo lojista</span>
-      <span style="display:flex; align-items:center; gap:6px">${tIco('pacote')}${encPend} mercadoria(s) do antigo sinalizada(s) na portaria</span>
+      <span style="display:flex; align-items:center; gap:6px">${tIco('pacote')}${encPend} mercadoria(s) do antigo sinalizada(s) na doca</span>
     </div></div>
     <div class="sub" style="margin:12px 0 4px">Próximo passo: <b>liberar o acesso</b> do novo lojista. O convite já leva o comunicado de boas-vindas.</div>
     <button class="btn principal btn-grande" onclick="ativarMorador('${un}')">${tIco('chave')}Liberar acesso e enviar boas-vindas</button>
@@ -4235,11 +4516,15 @@ function verPraAgir(){
       <div class="linha1"><span class="nome" style="font-size:.92rem">${tIco(ico)}${titulo}</span><span style="display:flex; align-items:center; gap:6px"><span class="chip ${cor==='vermelho'?'vermelho':'laranja'}">${arr.length}</span><span style="color:var(--cinza)">›</span></span></div>
       <div class="sub" style="margin-top:4px">${lista(arr)}</div></button>`:'';
   /* panorama = categorias de acompanhamento que NÃO têm ação inline (não duplicam a fila acima) */
+  const risco=faturamentos.map(riscoLojista).filter(Boolean);
+  const riscoArr=risco.map(r=>r.loja);
   const panorama=[
     pano('vermelho','alerta','Manutenção vencida',d.venc,"filtroManuStatus='Vencidas';irPara('manutencao')"),
     pano('laranja','calendario','Vencendo em 30 dias',d.breve,"filtroManuStatus='Vencendo';irPara('manutencao')"),
     pano('vermelho','cifrao','Inadimplência +60 dias',d.inad,"irPara('inadimplencia')"),
-    pano('laranja','contrato','Contratos vencendo',d.contr,"irPara('fornecedores')"),
+    pano(risco.some(r=>r.nivel==='alto')?'vermelho':'laranja','grafico','Lojistas em risco de saída',riscoArr,"irPara('faturamento')"),
+    (()=>{const rv=contratosLoc.map(c=>({c,m:mesesAte(c.fim)})).filter(x=>x.c.status!=='indeterminado'&&x.m!==null&&x.m>=0&&x.m<=12);return pano(rv.some(x=>x.m<=6)?'vermelho':'laranja','contrato','Renovatória — janela aberta',rv.map(x=>`${x.c.loja} (${x.m}m)`),"irPara('contratos')");})(),
+    pano('laranja','contrato','Contratos de prestador vencendo',d.contr,"irPara('fornecedores')"),
   ].filter(Boolean).join('');
   let zt=`Resumo da semana — ${COND.nome}:`;
   if(d.venc.length) zt+=`\n- Manutenção vencida (${d.venc.length}): ${d.venc.join(', ')}`;
@@ -4329,9 +4614,9 @@ function trocarAdministradora(){
     <label>Nome da nova administradora</label><input id="ta-nome" placeholder="Ex.: Predial Gestão (deixe vazio se autogestão)">
     <div class="item" style="background:var(--cinza-claro); margin-top:10px"><div class="sub" style="margin:0; line-height:1.9"><b>O que acontece — sem perder dados:</b><br>
       ${tIco('check')}Contrato de locação, atas, histórico, lojas, manutenção e fornecedores <b>ficam</b><br>
-      ${tIco('cadeado')}Integrações locais (portaria, elevador, câmeras) <b>permanecem</b><br>
+      ${tIco('cadeado')}Integrações locais (acesso, elevador, câmeras) <b>permanecem</b><br>
       ${tIco('troca')}ERP, banco/boleto e WhatsApp re-apontados pra nova gestão<br>
-      ${tIco('cifrao')}Cobrança migra · fundo de reserva e prestação de contas entregues</div></div>
+      ${tIco('cifrao')}Cobrança migra · reserva de contingência e prestação de contas entregues</div></div>
     <button class="btn principal btn-grande" onclick="confirmarTrocaAdm()">Confirmar troca</button>`);
 }
 function confirmarTrocaAdm(){
@@ -4348,7 +4633,7 @@ function confirmarTrocaAdm(){
     <div class="sub" style="margin-bottom:10px">${COND.nome} agora é <b>${nova||'autogerido pelo superintendente'}</b>. Nada de dado se perdeu:</div>
     <div class="item" style="border-color:var(--verde)"><div class="sub" style="margin:0; line-height:1.9; display:flex; flex-direction:column; gap:1px">
       <span style="display:flex; align-items:center; gap:6px">${tIco('check')}Dados do shopping preservados (controlador = shopping)</span>
-      <span style="display:flex; align-items:center; gap:6px">${tIco('cadeado')}Integrações locais mantidas (portaria, elevador, câmeras)</span>
+      <span style="display:flex; align-items:center; gap:6px">${tIco('cadeado')}Integrações locais mantidas (acesso, elevador, câmeras)</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('troca')}${reapont} integração(ões) da carteira (ERP/banco/WhatsApp) em migração</span>
       <span style="display:flex; align-items:center; gap:6px">${tIco('cifrao')}Cobrança e prestação de contas em transferência</span>
     </div></div>
@@ -4403,6 +4688,134 @@ function darVistoProva(){
   logAudit('deu visto na operação do dia do facilities','Superintendente');
   fecharModal(); atualizar(); toast('Visto dado — o facilities vê o reconhecimento na tela dele.');
 }
+/* ===== CONTRATOS DE LOCAÇÃO & RENOVATÓRIA (superintendente) ===== */
+function avalContrato(c){
+  const cur=hoje.getMonth()+1;
+  const m=mesesAte(c.fim);
+  const direito = c.prazoMeses>=60 && c.status!=='indeterminado';
+  let nivel, chip, nota;
+  if(c.status==='indeterminado'){
+    nivel=2; chip=['cinza','prazo indeterminado'];
+    nota='O prazo determinado terminou — o contrato vigora por prazo indeterminado. Cabe denúncia vazia com 30 dias (art. 57); não há renovatória automática.';
+  } else if(m<0){
+    nivel=0; chip=['vermelho','vencido'];
+    nota='Contrato vencido — regularizar a renovação ou retomar o ponto.';
+  } else if(m<=6){
+    nivel=0; chip=['vermelho',`vence em ${m} ${m===1?'mês':'meses'}`];
+    nota=direito?'Janela da ação renovatória (12–6 meses antes do fim) já <b>encerrada</b> — o lojista perde o direito se não ajuizou. Feche a renovação amigável ou prepare a retomada.'
+                :'Sem direito a renovatória (prazo &lt; 5 anos) — a renovação é livre; negocie o novo aluguel ou retome o ponto.';
+  } else if(m<=12){
+    nivel=1; chip=['laranja','na janela da renovatória'];
+    nota=direito?`Janela legal <b>aberta agora</b> (fim em ${m} meses). Decida: renovar no acordo (evita a ação) ou preparar defesa/retomada. Fixe o novo aluguel mínimo + % e o reajuste.`
+                :`Prazo &lt; 5 anos: renovação por acordo, sem renovatória. Fim em ${m} meses — alinhe já as novas condições.`;
+  } else {
+    nivel=3; chip=['ok',`vigente · fim em ${m} meses`];
+    nota=direito?'Direito a renovatória quando entrar na janela (12–6 meses antes do fim).':'Renovação por acordo no vencimento.';
+  }
+  return {c, m, direito, nivel, chip, nota, reajMes:c.mesReaj===cur};
+}
+TELAS.contratos = () => {
+  const rows=contratosLoc.map(avalContrato).sort((a,b)=> (a.nivel-b.nivel) || ((a.m??999)-(b.m??999)));
+  const naJanela=rows.filter(r=>r.nivel===1).length;
+  const vencendo=rows.filter(r=>r.nivel===0).length;
+  const reaj=rows.filter(r=>r.reajMes).length;
+  return `<div class="tela on">
+  <div class="topo"><h1>${tIco('contrato')}Contratos & renovatória</h1><p>Locação das lojas · Lei 8.245/91 · não perca a janela nem o ponto</p></div>
+  <div style="display:flex; gap:8px; margin-bottom:12px">
+    <div class="card ${naJanela?'aten':''}"><div class="num">${naJanela}</div><div class="lbl">na janela</div></div>
+    <div class="card ${vencendo?'aten':''}"><div class="num">${vencendo}</div><div class="lbl">vencendo</div></div>
+    <div class="card"><div class="num">${reaj}</div><div class="lbl">reajuste no mês</div></div>
+  </div>
+  ${rows.map(r=>{const c=r.c; return `<div class="item" style="border-left:3px solid var(--${r.chip[0]})">
+    <div class="linha1"><span class="nome">${c.un} — ${c.loja}</span><span class="chip ${r.chip[0]}">${r.chip[1]}</span></div>
+    <div class="sub" style="margin-top:5px; display:flex; gap:6px; flex-wrap:wrap">
+      <span class="chip cinza" style="border:none">fim ${c.fim}</span>
+      <span class="chip cinza" style="border:none">prazo ${c.prazoMeses}m</span>
+      <span class="chip cinza" style="border:none">reajuste ${c.indice} · ${MES_ABR[c.mesReaj]}</span>
+      ${c.raio&&c.raio!=='—'?`<span class="chip cinza" style="border:none">raio ${c.raio}</span>`:''}
+      ${r.reajMes?'<span class="chip laranja">reajuste este mês</span>':''}
+      ${r.direito?'<span class="chip verde" style="border:none">tem renovatória</span>':''}
+    </div>
+    <div class="sub" style="margin-top:6px; display:flex; align-items:flex-start; gap:5px">${tIco('balanca')}<span>${r.nota}</span></div>
+    <div class="botoes" style="justify-content:flex-end; margin-top:8px">
+      <button class="chip cinza" style="border:none; cursor:pointer" onclick="toast('No produto final: abre o contrato de locação (PDF) e o histórico de reajustes.')">Ver contrato</button>
+      <button class="chip verde" style="border:none; cursor:pointer" onclick="toast('Proposta de renovação gerada (demo): novo prazo, aluguel mínimo + % e reajuste — pronta pra enviar ao lojista.')">Propor renovação</button>
+    </div>
+  </div>`;}).join('')}
+  <div class="aviso-lgpd">Renovatória (Lei 8.245/91, arts. 51–72): a ação do lojista corre de <b>12 a 6 meses</b> antes do fim, se o contrato for escrito, por prazo determinado ≥ 5 anos e mesmo ramo há ≥ 3 anos. O ${nomeAssist} avisa a janela pra você renovar no acordo — não no fórum. A cláusula de raio segue os limites do CADE.</div>
+</div>`;
+};
+/* ===== MERCHANDISING & ESPAÇOS COMERCIAIS (superintendente) — receita governada ===== */
+TELAS.merchandising = () => {
+  const total=espacosComerciais.length;
+  const livre=espacosComerciais.filter(e=>e.status==='livre').length;
+  const ocup=total-livre;
+  const receitaPrev=espacosComerciais.filter(e=>e.status!=='livre').reduce((s,e)=>s+e.valor,0);
+  const aLancar=espacosComerciais.filter(e=>e.status!=='livre'&&!e.lancado);
+  const ocupPct=total?Math.round(ocup/total*100):0;
+  const chipDe=st=>st==='ocupado'?['verde','ocupado']:st==='reservado'?['laranja','reservado']:['cinza','livre'];
+  return `<div class="tela on">
+  <div class="topo"><h1>${tIco('cifrao')}Merchandising & espaços</h1><p>Quiosque · ilha · ação promocional · mídia indoor — receita do shopping</p></div>
+  <div style="display:flex; gap:8px; margin-bottom:12px">
+    <div class="card ok"><div class="num">${fmt(receitaPrev)}</div><div class="lbl">receita prevista/mês</div></div>
+    <div class="card"><div class="num">${ocupPct}%</div><div class="lbl">ocupação</div></div>
+    <div class="card ${livre?'aten':''}"><div class="num">${livre}</div><div class="lbl">livres</div></div>
+  </div>
+  ${aLancar.length?`<div class="item" style="border-left:3px solid var(--laranja)"><div class="linha1"><span class="nome">${tIco('alerta')}${aLancar.length} a lançar no financeiro</span><span class="chip laranja">${fmt(aLancar.reduce((s,e)=>s+e.valor,0))}</span></div><div class="sub" style="margin-top:4px">Espaços ocupados/reservados ainda não lançados na receita do mês.</div></div>`:''}
+  ${espacosComerciais.map(e=>{const [cor,rot]=chipDe(e.status); return `<div class="item">
+    <div class="linha1"><span class="nome">${e.nome}</span><span class="chip ${cor}">${rot}</span></div>
+    <div class="sub" style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap">
+      <span class="chip cinza" style="border:none">${e.tipo}</span>
+      <span class="chip cinza" style="border:none">${fmt(e.valor)}${e.unidade}</span>
+      ${e.ocupante?`<span class="chip cinza" style="border:none">${e.ocupante}${e.periodo?' · '+e.periodo:''}</span>`:''}
+      ${e.status!=='livre'?(e.lancado?'<span class="chip verde" style="border:none">lançado</span>':'<span class="chip laranja">a lançar</span>'):''}
+    </div>
+    <div class="botoes" style="justify-content:flex-end; margin-top:8px">
+      ${e.status==='livre'
+        ?`<button class="chip verde" style="border:none; cursor:pointer" onclick="ofertarEspaco(${e.id})">Ofertar espaço</button>`
+        :(e.lancado
+           ?`<button class="chip cinza" style="border:none; cursor:pointer" onclick="toast('No produto final: abre o contrato temporário e o comprovante do lançamento.')">Ver contrato</button>`
+           :`<button class="chip cinza" style="border:none; cursor:pointer" onclick="toast('No produto final: abre o contrato temporário do espaço.')">Ver contrato</button><button class="chip verde" style="border:none; cursor:pointer" onclick="lancarEspaco(${e.id})">Lançar no financeiro</button>`)}
+    </div>
+  </div>`;}).join('')}
+  <div class="aviso-lgpd">Merchandising é <b>receita do shopping</b> (não entra no rateio dos lojistas), com contrato temporário e lançamento no financeiro. A monetização dos espaços comuns é governada pela superintendência.</div>
+</div>`;
+};
+function lancarEspaco(id){ const e=espacosComerciais.find(x=>x.id===id); if(!e)return; e.lancado=true; if(window.logAudit) logAudit('lançou no financeiro a receita do espaço '+e.nome,'Superintendente'); atualizar(); toast('Receita de '+fmt(e.valor)+' lançada no financeiro do mês — '+e.nome+'.'); }
+function ofertarEspaco(id){ const e=espacosComerciais.find(x=>x.id===id); if(!e)return; toast('Espaço ofertado (demo): '+e.nome+' disponível no app dos lojistas por '+fmt(e.valor)+e.unidade+'.'); }
+/* ===== FPP como ROI (superintendente + conselho) ===== */
+TELAS.fpp = () => {
+  const camp=fppInfo.campanhas;
+  const feitas=camp.filter(c=>c.status!=='planejada' && c.incremental);
+  const roasMed=feitas.length ? feitas.reduce((s,c)=>s+c.incremental/c.invest,0)/feitas.length : 0;
+  const st=c=>c.status==='concluida'?['verde','concluída']:c.status==='andamento'?['laranja','em andamento']:['cinza','planejada'];
+  return `<div class="tela on">
+  <div class="topo"><h1>${tIco('grafico')}Fundo de Promoção — ROI</h1><p>Onde o FPP foi aplicado e o que trouxe de fluxo e vendas</p></div>
+  <div style="display:flex; gap:8px; margin-bottom:12px">
+    <div class="card ok"><div class="num">${fmt(fppInfo.arrecadadoAno)}</div><div class="lbl">arrecadado no ano</div></div>
+    <div class="card"><div class="num">${fmt(fppInfo.saldo)}</div><div class="lbl">saldo do fundo</div></div>
+    <div class="card ok"><div class="num">${roasMed.toFixed(1)}×</div><div class="lbl">vendas por R$1</div></div>
+  </div>
+  <div class="sub" style="margin:-4px 0 12px">O FPP <b>não é caixa nem gasto</b> — é investimento em datas comerciais com retorno medido (fluxo × vendas). Cada campanha tem comprovante (direito de conta do art. 54 §2º).</div>
+  ${camp.map(c=>{const [cor,rot]=st(c); const roas=c.incremental?c.incremental/c.invest:0; return `<div class="item">
+    <div class="linha1"><span class="nome">${c.nome} <span style="color:var(--cinza); font-weight:500">· ${c.mes}</span></span><span class="chip ${cor}">${rot}</span></div>
+    <div class="sub" style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap">
+      <span class="chip cinza" style="border:none">${c.periodo}</span>
+      <span class="chip cinza" style="border:none">investido ${fmt(c.invest)}</span>
+      ${c.aderiram!=null?`<span class="chip ${c.aderiram/TOTAL_LOJAS_CAMP>=0.5?'verde':'laranja'}" style="border:none">${c.aderiram}/${TOTAL_LOJAS_CAMP} lojas aderiram</span>`:''}
+      ${c.nf?`<button class="chip verde" style="border:none; cursor:pointer" onclick="toast('No produto final: abre a nota/comprovante e o relatório de resultado da campanha.')">${clip()}${c.nf}</button>`:''}
+    </div>
+    ${c.status!=='planejada'?`<div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+       <div style="flex:1 1 30%; border:1px solid var(--borda); border-radius:9px; padding:7px 9px"><div class="sub" style="margin:0; font-size:.68rem">Fluxo</div><div style="font-weight:800; color:var(--verde-escuro)">▲ ${c.fluxo}%</div></div>
+       <div style="flex:1 1 30%; border:1px solid var(--borda); border-radius:9px; padding:7px 9px"><div class="sub" style="margin:0; font-size:.68rem">Vendas</div><div style="font-weight:800; color:var(--verde-escuro)">▲ ${c.vendas}%</div></div>
+       <div style="flex:1 1 30%; border:1px solid var(--borda); border-radius:9px; padding:7px 9px"><div class="sub" style="margin:0; font-size:.68rem">Retorno</div><div style="font-weight:800">${roas.toFixed(1)}×</div></div>
+     </div>
+     <div class="sub" style="margin-top:8px">Vendas incrementais estimadas no período: <b>${fmt(c.incremental)}</b> (vs. base sem campanha).</div>`
+     :`<div class="sub" style="margin-top:8px">Campanha planejada — orçamento reservado no FPP. Resultado medido após o período.</div>`}
+  </div>`;}).join('')}
+  <div class="aviso-lgpd">Fluxo vem do people counting (câmera/wi-fi) e vendas da declaração de faturamento — atribuição estimada ao período da campanha. Prestação de contas do FPP é direito do lojista a cada 60 dias (Lei 8.245/91, art. 54 §2º).</div>
+</div>`;
+};
 TELAS.fornecedores = () => {
   const comContrato=PRESTADORES.filter(p=>p.contrato), avulsos=PRESTADORES.filter(p=>!p.contrato);
   return `<div class="tela on">
@@ -4467,7 +4880,7 @@ TELAS.triagem = () => `<div class="tela on">
     <button class="btn principal" style="flex:0 0 auto; padding:0 18px" onclick="triar()" aria-label="Buscar">${ico('enviar')}</button>
   </div>
   <div style="display:flex; gap:6px; flex-wrap:wrap; margin:10px 0">
-    ${['Lâmpada do hall queimada','Elevador parado','Cheiro de gás na estacionamento','Ralo entupido','Trinca na fachada'].map(s=>`<button class="chip cinza" style="border:none" onclick="triar('${s}')">${s}</button>`).join('')}
+    ${['Lâmpada do hall queimada','Elevador parado','Cheiro de gás no estacionamento','Ralo entupido','Trinca na fachada'].map(s=>`<button class="chip cinza" style="border:none" onclick="triar('${s}')">${s}</button>`).join('')}
   </div>
   ${triagemResultado?`<div class="item" style="border-color:${triagemResultado.lado==='interno'?'var(--verde)':'var(--vermelho)'}">
     <div class="linha1"><span class="nome">${triagemResultado.lado==='interno'?tIco('chave')+'Resolve internamente':tIco('alerta')+'Chamar prestador'}</span>
@@ -4754,7 +5167,7 @@ function salvarResposta(id){
 function responderMorador(id){
   const o=ocorrencias.find(x=>x.id===id);
   abrirModal(`<h3>↩ Responder ao superintendente — ${o.titulo}</h3>
-    <label>Sua mensagem</label><input id="mr-resp" placeholder="Ex.: a ART foi emitida, envio o PDF na portaria">
+    <label>Sua mensagem</label><input id="mr-resp" placeholder="Ex.: a ART foi emitida, envio o PDF na administração">
     <button class="btn principal btn-grande" onclick="enviarRespostaMorador(${id})">Enviar</button>
     <div class="aviso-lgpd">A conversa fica registrada na própria solicitação — nada se perde em grupo de WhatsApp.</div>`);
 }
@@ -4771,7 +5184,7 @@ function aprovarReforma(id){
   abrirModal(`<h3>${tIco('martelo')}Aprovar reforma — ${o.un}</h3>
     <div class="sub" style="margin-bottom:10px">"${o.desc}"</div>
     <div class="sub" style="font-weight:700; margin-bottom:6px">Condições padrão (NBR 16.280 + regimento):</div>
-    <div class="item"><div class="sub"> ART/RRT do responsável técnico arquivada antes do início<br> Horários: seg–sex 8h–17h, sáb 9h–13h — domingos e feriados, não<br> Trabalhadores cadastrados na portaria (documento com foto)<br> Elevador de serviço com proteção instalada<br> Entulho em caçamba própria — proibido na lixeira comum<br> Comunicar conclusão para registro no histórico da loja</div></div>
+    <div class="item"><div class="sub"> ART/RRT do responsável técnico arquivada antes do início<br> Horários: seg–sex 8h–17h, sáb 9h–13h — domingos e feriados, não<br> Trabalhadores cadastrados na segurança (documento com foto)<br> Elevador de serviço com proteção instalada<br> Entulho em caçamba própria — proibido na lixeira comum<br> Comunicar conclusão para registro no histórico da loja</div></div>
     <button class="btn principal btn-grande" onclick="confirmarReforma(${id})">Aprovar e enviar condições ao lojista</button>
     <div class="aviso-lgpd">Sem ART para obra estrutural, o superintendente pode (e deve) embargar — a responsabilidade por dano recai sobre ele também.</div>`);
 }
@@ -4865,29 +5278,29 @@ function avancarOcorrencia(id){
 
 /* ===== ASSISTENTE DE REGRAS (regimento fictício p/ demo) ===== */
 const REGRAS_BASE = [
-  {chaves:['festa','salão','salao','música','musica','horário do salão','aniversário','aniversario'],
+  {chaves:['espaço promocional','espaco promocional','ação promocional','acao promocional','ativação','ativacao','evento de loja','promoção','promocao'],
    r:'O Espaço Promocional pode ser usado até as 23h de domingo a quinta e até a 0h às sextas, sábados e vésperas de feriado. Som em volume moderado após as 22h.',
    fonte:'Regimento Interno, art. 14'},
   {chaves:['barulho','silêncio','silencio','som alto','obra','furadeira','furar','parede','martelo','reforma'],
    r:'O horário de silêncio é das 22h às 8h. Obras e reformas são permitidas de segunda a sexta das 8h às 17h e aos sábados das 9h às 13h. Domingos e feriados, não.',
    fonte:'Regimento Interno, art. 9 e 21'},
   {chaves:['cachorro','gato','pet','animal','animais','coleira'],
-   r:'Animais de estimação são permitidos. Nas espaços comerciais devem circular sempre de coleira (e focinheira quando exigido por lei), pelo elevador de serviço. É responsabilidade do tutor recolher dejetos.',
+   r:'Animais de estimação são permitidos nas áreas comuns do shopping sempre de coleira (e focinheira quando exigido por lei); circulação de carga e serviço pelo elevador de serviço. É responsabilidade do tutor recolher dejetos.',
    fonte:'Regimento Interno, art. 17'},
-  {chaves:['quiosque','churrasco'],
-   r:'A quiosque funciona das 10h às 22h, mediante reserva pelo app. A limpeza ao final do uso é responsabilidade da loja que reservou.',
+  {chaves:['quiosque','ilha','ponto extra'],
+   r:'O quiosque/ilha funciona no horário do mall, mediante reserva do espaço pelo app. A limpeza e a operação no padrão do shopping são responsabilidade da loja que reservou.',
    fonte:'Regimento Interno, art. 15'},
-  {chaves:['praça de eventos','convidado','convidados'],
-   r:'A praça de eventos funciona das 8h às 21h. Cada loja pode levar até 2 convidados por dia, acompanhados de um lojista. Exame médico não é exigido, mas crianças até 10 anos só com responsável.',
+  {chaves:['praça de eventos','ação de marketing','evento do shopping'],
+   r:'A praça de eventos funciona das 8h às 21h e é reservada pela superintendência para ações do shopping e das lojas. Venda no local exige autorização e pode ter contrapartida ao Fundo de Promoção (FPP).',
    fonte:'Regimento Interno, art. 16'},
   {chaves:['mudança','mudanca','frete','elevador de serviço'],
-   r:'Mudanças devem ser agendadas com a portaria com 48h de antecedência e ocorrem de segunda a sábado, das 8h às 17h, pelo elevador de serviço com proteção instalada.',
+   r:'Mudanças devem ser agendadas com a segurança com 48h de antecedência e ocorrem de segunda a sábado, das 8h às 17h, pelo elevador de serviço com proteção instalada.',
    fonte:'Regimento Interno, art. 19'},
   {chaves:['estacionamento','vaga','estacionar','visitante pode estacionar','carro'],
    r:'As vagas são vinculadas às lojas conforme o contrato de locação. Vagas de visitantes são limitadas a 4h, sem pernoite, sujeitas à disponibilidade.',
    fonte:'Contrato de locação, cláusula 22 · Regimento, art. 12'},
   {chaves:['multa','atraso','juros','taxa atrasada','inadimpl'],
-   r:'Taxa em atraso tem multa de 2% e juros de 1% ao mês, conforme o Lei 8.245/91 (Lei 8.245/91 art. 54 §1º). Lojas em atraso ficam impedidas de reservar espaços comerciais até regularizar.',
+   r:'Encargos em atraso (aluguel, CDU, FPP) têm multa e juros conforme o contrato de locação (Lei 8.245/91, art. 54 §1º). Loja em atraso fica impedida de reservar espaços de merchandising até regularizar.',
    fonte:'Contrato de locação, cláusula 18'},
 ];
 /* ===== EDI — assistente do shopping =====
@@ -4896,10 +5309,10 @@ const REGRAS_BASE = [
    loja além do que o perfil já vê; quando não sabe, encaminha — nunca inventa. */
 let chatEdi=[{de:'bot', t:`Oi! Eu sou o ${nomeAssist}, o assistente do shopping. Pergunte uma regra (eu cito o artigo) ou me peça algo — eu preparo e você só confirma.`}];
 const EDI_CHIPS={
-  lojista:['Reserva o salão num sábado','2ª via dos encargos','Minha mercadoria chegou?','Pode festa até que horas?'],
+  lojista:['Reservar espaço promocional','2ª via dos encargos','Minha mercadoria chegou?','Quando declaro o faturamento?'],
   sindico:['Quem deve há mais de 60 dias?','Resume as contas de maio','O que está vencido na manutenção?','Horário de obra?'],
   conselho:['Resume as contas de maio','Multa por atraso?','Horário de silêncio?'],
-  facilities:['Portão não abre, e agora?','Cheiro de gás na estacionamento','Elevador parado','Horário de obra?'],
+  facilities:['Portão não abre, e agora?','Cheiro de gás no estacionamento','Elevador parado','Horário de obra?'],
   portaria:['O eletricista do 203 está autorizado?','Tem mercadoria do 305?','Visitante pode estacionar?'],
 };
 function ediProximoDiaLivre(area, dow){
@@ -4961,11 +5374,11 @@ function ediResponder(q){
      || /(quem [ée] voc|o que voc[êe] faz|pra que voc[êe] serve|como voc[êe] funciona|o que d[áa] pra|o que voc[êe] pode|me ajuda|pode (me )?ajudar|preciso de ajuda)/.test(ql)){
     const chips=(EDI_CHIPS[perfil]||EDI_CHIPS.lojista).slice(0,3);
     const cap={
-      lojista:'reservar espaços comerciais, ver a 2ª via / PIX dos encargos, conferir encomendas na portaria e tirar dúvida do regimento',
+      lojista:'reservar espaços comerciais, ver a 2ª via / PIX dos encargos, acompanhar entregas na doca e tirar dúvida do regimento',
       sindico:'inadimplência, balancete, prazos de manutenção e o que precisa da sua decisão',
       conselho:'inadimplência, balancete e prazos legais pra fiscalizar as contas',
       facilities:'triagem de manutenção, rotina do dia e o que é responsabilidade do shopping',
-      portaria:'autorização de visitante / prestador e status das encomendas',
+      portaria:'autorização de visitante / prestador e status das entregas na doca',
       administradora:'a carteira de shoppings e os indicadores de cada um'
     }[perfil]||'as suas tarefas do dia a dia';
     return {t:`Oi! Eu sou o ${nomeAssist}, seu assistente aqui do ${COND.nome}. Posso ajudar com ${cap}. É só pedir — ou tocar num atalho:`,
@@ -4992,8 +5405,8 @@ function ediResponder(q){
         html:`<div class="botoes"><button class="btn principal" onclick="ediPixJulho()">Gerar PIX de julho</button></div>`};
     if(ql.includes('mercadoria')||ql.includes('pacote')||ql.includes('entrega')){
       const e=encomendas.find(x=>x.un===MORADOR.un&&x.status==='aguardando');
-      return e?{t:`Tem sim! Uma mercadoria (${e.transp}) chegou ${e.chegada} — está na portaria te esperando.`}
-              :{t:'Nenhuma mercadoria aguardando pra sua loja agora. Quando chegar, você é avisada no WhatsApp na hora.'};
+      return e?{t:`Tem sim! Uma carga (${e.transp}) chegou ${e.chegada} — está na doca de recebimento, liberada pra retirada.`}
+              :{t:'Nenhuma carga aguardando pra sua loja agora. Quando chegar na doca, você é avisada no WhatsApp na hora.'};
     }
   }
   if(perfil==='sindico'||perfil==='conselho'){
@@ -5004,7 +5417,7 @@ function ediResponder(q){
         html:(graves.length&&perfil==='sindico')?`<div class="botoes"><button class="btn principal" onclick="irPara('inadimplencia')">Abrir cobrança</button></div>`:''};
     }
     if(ql.includes('conta')||ql.includes('balancete')||ql.includes('fundo')||ql.includes('resume'))
-      return {t:`Maio fechou com receitas de ${fmt(28350)} e despesas de ${fmt(24180)} — saldo de + ${fmt(4170)}. Fundo de reserva: ${fmt(38400)}.`,
+      return {t:`Maio fechou com receitas de ${fmt(28350)} e despesas de ${fmt(24180)} — saldo de + ${fmt(4170)}. Reserva de contingência: ${fmt(38400)}.`,
         html:`<div class="botoes"><button class="btn principal" onclick="verBalancete()"><span class="ico-in">${ico('grafico')}</span> Ver gráfico</button></div>`};
     if(ql.includes('venc')||ql.includes('manuten')||ql.includes('prazo')){
       const v=manutencoes.filter(m=>m.status==='vencida');
@@ -5018,7 +5431,7 @@ function ediResponder(q){
       const v=visitantes.find(x=>x.status==='pré-autorizado'&&(!num||x.un.includes(num)));
       return v?{t:`Sim: ${v.nome} está pré-autorizado pelo ${v.un}. Registre a entrada com o documento.`,
         html:`<div class="botoes"><button class="btn principal" onclick="irPara('visitantes')">Abrir visitantes</button></div>`}
-        :{t:'Não encontrei autorização prévia pra isso. Sem autorização do lojista, não passa da portaria — chame no interfone.'};
+        :{t:'Não encontrei autorização prévia pra isso. Sem autorização do lojista, não passa do controle de acesso — chame no interfone.'};
     }
     if(ql.includes('mercadoria')){
       const num=(ql.match(/\d{3}/)||[])[0];
@@ -5066,14 +5479,14 @@ function zapResp(q){
     return {t:'Aqui está o PIX da seus encargos — é só copiar no app do banco e pagar:', pix};
   }
   if(ql.includes('reserv'))
-    return {t:r.t, fonte:r.fonte, act:{label:'Confirmar reserva', reply:'Reserva confirmada. Você recebe o comprovante aqui no WhatsApp e o salão já consta como seu na data.'}};
+    return {t:r.t, fonte:r.fonte, act:{label:'Confirmar reserva', reply:'Reserva confirmada. Você recebe o comprovante aqui no WhatsApp e o espaço já consta como seu na data.'}};
   return {t:r.t, fonte:r.fonte};   // demais: só texto + citação da fonte
 }
 function zapAct(reply){ chatZap.push({de:'bot', t:reply}); verEdiZap(); }
 /* Gi PROATIVO: ele começa a conversa (diferencial de co-piloto, não só reativo). */
 function zapProativo(tipo){
   if(tipo==='mercadoria'){
-    chatZap=[{de:'bot', proat:1, t:'📦 Chegou uma mercadoria sua na portaria (Mercado Livre, na guarita). Quer que eu autorize a entrega na sua porta?', act:{label:'Autorizar entrega na porta', reply:'Feito! Avisei a portaria pra subir sua mercadoria. Você recebe a confirmação aqui quando for entregue.'}}];
+    chatZap=[{de:'bot', proat:1, t:'📦 Chegou uma carga sua na doca de recebimento (Transportadora Jamef). Já conferi a nota. Quer que eu confirme a retirada e avise sua equipe?', act:{label:'Confirmar retirada', reply:'Feito! Avisei a doca e sua equipe. Você recebe a confirmação aqui quando a carga for retirada.'}}];
   } else if(tipo==='taxa'){
     const pix=gerarPix(COND.chavePix, COND.nome, COND.cidade, COND.taxa, 'APTO305-2026-07');
     chatZap=[{de:'bot', proat:1, t:`Oi! Seus encargos de julho (${fmt(COND.taxa)}) vence em 3 dias. Já deixei o PIX pronto — é só copiar e pagar:`, pix}];
@@ -5153,7 +5566,7 @@ TELAS.mregras = () => `<div class="tela on">
 
 /* enquete informal com voto no app (roadmap CondoX) — decisão formal continua na assembleia.
    O superintendente cria/edita/encerra em TELAS.inicio (card COMUNICAÇÃO → editarEnquete). */
-let enquete={ativa:true, q:'Cobrir o bicicletário?', info:'Orçamento estimado: R$ 12.400 do fundo de reserva.', encerra:'24/06', piso:'todas',
+let enquete={ativa:true, q:'Estender o horário nas datas de fim de ano?', info:'Dezembro: abertura 1h mais cedo e fechamento 1h mais tarde nas semanas do Natal.', encerra:'24/06', piso:'todas',
   opcoes:[['Sou a favor',38],['Não agora',9]], votou:null};
 let enqPisoSel='todas';
 function votar(i){
@@ -5262,7 +5675,7 @@ function auditoriaCardSindico(){
 function notificacoesMorador(){
   const out=[];
   const enc=encomendas.find(e=>e.un===MORADOR.un&&e.status==='aguardando');
-  if(enc) out.push({ic:'pacote', t:'Mercadoria na portaria', sub:`${enc.transp} · chegou ${enc.chegada}`, q:enc.chegada, lida:false, go:`irPara('mhome')`});
+  if(enc) out.push({ic:'pacote', t:'Entrega na doca', sub:`${enc.transp} · chegou ${enc.chegada}`, q:enc.chegada, lida:false, go:`irPara('mhome')`});
   if(enquete.ativa&&enquete.votou===null) out.push({ic:'grafico', t:'Enquete aberta', sub:`"${enquete.q}" — seu voto conta`, q:'', lida:false, go:`irPara('mhome')`});
   if(!MORADOR.emDia) out.push({ic:'cifrao', t:'Taxa em aberto', sub:'Toque pra gerar o PIX / 2ª via', q:'', lida:false, go:`minhaTaxa()`});
   avisosDoMorador().forEach(a=>{const ix=avisos.indexOf(a); const lida=(a.lidoPor||[]).includes(MORADOR.un);
@@ -5398,9 +5811,9 @@ function editarEnquete(){
   const e=enquete; enqPisoSel=e.piso||'todas';
   abrirModal(`<h3>${tIco('grafico')}${e.ativa?'Enquete no ar':'Nova enquete'}</h3>
     ${e.ativa?resultadoEnquete(e):''}
-    <div class="sub" style="margin:12px 0">${e.ativa?'Edite a pergunta ou encerre abaixo. ':''}Pra sentir o clima dos lojistas. A decisão formal (gasto do fundo) continua indo pra assembleia — a enquete não substitui o voto oficial.</div>
+    <div class="sub" style="margin:12px 0">${e.ativa?'Edite a pergunta ou encerre abaixo. ':''}Pra sentir o clima dos lojistas. A decisão formal (horário, rateio de campanha, obra) continua indo pra assembleia da associação — a enquete não substitui o voto oficial.</div>
     <label>Pergunta</label>
-    <input id="enq-q" type="text" value="${esc(e.q)}" placeholder="Ex.: Cobrir o bicicletário?">
+    <input id="enq-q" type="text" value="${esc(e.q)}" placeholder="Ex.: Estender o horário no fim de ano?">
     <label>Opção 1</label>
     <input id="enq-o1" type="text" value="${e.opcoes[0]?esc(e.opcoes[0][0]):''}" placeholder="Ex.: Sou a favor">
     <label>Opção 2</label>
@@ -5611,7 +6024,7 @@ TELAS.mavisos = () => `<div class="tela on">
     return `<div class="item"><div class="linha1"><span class="nome">${a.t}</span><span style="display:flex; gap:5px">${a.cat==='operação'?'<span class="chip cinza">operação</span>':''}<span class="chip ${a.piso==='todas'?'cinza':'laranja'}">${a.piso==='todas'?'todos os pisos':'Piso '+a.piso}</span><span class="chip cinza">${a.quando}</span></span></div><div class="sub">${a.d}</div>
     <div class="sub" style="margin-top:3px; font-size:.78rem">por ${a.autor||'Superintendente'}</div>
     ${a.anexo?`<div class="sub" style="margin-top:4px">${clip()}documento anexado</div>`:''}
-    <div class="botoes"><button class="btn claro" ${lido?'disabled style="opacity:.6"':''} onclick="confirmarLeitura(${ix})">${lido?tIco('check')+'Lido':'Confirmar leitura'}</button></div></div>`;}).join('')||vazio('megafone','Nenhum aviso pra sua piso','Quando o superintendente ou a portaria publicar algo da sua piso, aparece aqui.')}
+    <div class="botoes"><button class="btn claro" ${lido?'disabled style="opacity:.6"':''} onclick="confirmarLeitura(${ix})">${lido?tIco('check')+'Lido':'Confirmar leitura'}</button></div></div>`;}).join('')||vazio('megafone','Nenhum aviso pra sua piso','Quando o superintendente ou a segurança publicar algo da sua piso, aparece aqui.')}
 </div>`;
 
 /* ---------- início: tela de login ---------- */
