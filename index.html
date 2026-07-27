@@ -427,7 +427,7 @@
 <script>
 'use strict';
 /* Versão do protótipo — aparece na barra superior. Atualize a cada release. */
-const VERSAO='Giro v1.20';
+const VERSAO='Giro v1.32';
 /* ============================================================
    Giro — protótipo navegável (sem servidor, dados em memória)
    Shopping fictício: Shopping Pátio Central, Osasco/SP, 60 lojas
@@ -792,6 +792,89 @@ function verPainelElevador(){
 }
 
 const MORADOR = {nome:'Renner (Carla M.)', un:'B-305', emDia:true, papel:'operadora'};
+/* Multi-loja: um operador pode ter lojas em mais de um shopping — um login, um seletor.
+   Cada shopping tem seu white-label; trocar de loja repinta o app com a marca do shopping. */
+let meusImoveis = [
+  {cond:'Aurora Shopping', un:'B-305', papel:'Operadora (Renner)', papelCurto:'operadora', cidade:'São Paulo · SP', tema:'classico', atual:true},
+  {cond:'Sunset Open Mall', un:'L-210', papel:'Operadora (Renner)', papelCurto:'operadora', cidade:'Bragança Paulista · SP', tema:'condox', atual:false},
+];
+
+/* ===== INDICAÇÕES ENTRE LOJISTAS (engajamento B2B, pull-based) =====
+   Lojista indica prestador que ELE já usa na operação (manutenção, montador, contador,
+   vitrinista, TI/PDV…); o vizinho de corredor vê a indicação + quem vouchou.
+   Guarda-corpos iguais aos do EdiVita: pull não push, lista não marketplace, ZERO
+   pagamento no app (contrata direto), shopping/Giro NÃO são parte (nem empregador nem
+   intermediário), opt-in de quem indica, superintendência não endossa. Sinergia:
+   prestador muito indicado vira pré-cadastro de prestador recorrente no acesso de
+   serviço/doca. FRONTEIRA: não substitui as EMPRESAS HOMOLOGADAS que o shopping exige
+   para obra de loja — a indicação peer é para o dia a dia da operação. */
+let indCats=['Todas','Manutenção de loja','Montador / marcenaria','Contador','Vitrinismo','Limpeza','TI / PDV','Refrigeração','Elétrica'];
+let indicacoes = [
+  {id:1, cat:'Montador / marcenaria', nome:'Marcenaria Bom Corte', quem:'A-112', anon:false, nota:5, texto:'Montou meu estoque e a bancada do caixa numa madrugada, sem parar a operação. Trabalha à noite.', apoios:['A-112','B-305','A-204'], recorrente:true},
+  {id:2, cat:'Contador', nome:'Contábil Vitória (MEI/Simples de loja)', quem:'A-204', anon:false, nota:5, texto:'Cuida do meu Simples e da declaração de faturamento pro shopping. Entende aluguel percentual.', apoios:['A-204','B-119'], recorrente:false},
+  {id:3, cat:'Refrigeração', nome:'FrioTech (splits e câmara)', quem:'B-307', anon:true, nota:4, texto:'Faz a PMOC dos splits e atendeu a câmara fria da praça de alimentação rápido. Bom preço em grupo de lojas.', apoios:['B-307','A-120','B-503','B-305'], recorrente:false},
+  {id:4, cat:'Vitrinismo', nome:'Ana — visual merchandising', quem:'B-119', anon:false, nota:5, texto:'Trocou minha vitrine pra Black Friday e o fluxo subiu. Cobra por projeto.', apoios:['B-119'], recorrente:false},
+];
+let indFiltro='Todas';
+
+/* ===== INTERFONE VIRTUAL — autorização em tempo real (segurança/doca ↔ lojista) =====
+   Cobre o fornecedor/entrega/visitante NÃO-marcado que chega agora na doca ou na entrada
+   de serviço: a segurança chama → o lojista decide ao vivo (autorizar/recusar/deixar na
+   doca) → a segurança vê a resposta. Complementa o QR de pré-autorização. */
+let chamadas = [
+  {id:1, un:'B-305', nome:'Distribuidora Sul · entrega', tipo:'Entregador', quando:'agora', status:'tocando', hora:'14:12'},
+];
+function respPend(un){ return chamadas.find(c=>c.un===un && c.status==='tocando'); }
+
+/* ===== ACHADOS E PERDIDOS (mural pull, low-noise) =====
+   Serve lojista + segurança (item deixado em área comum/praça). O achados-e-perdidos do
+   PÚBLICO do mall (cliente) é função de SAC — fora do escopo do protótipo. */
+let perdidos = [
+  {id:1, tipo:'achado', item:'Molho de chaves com controle de carro', local:'Praça de alimentação — L2', quando:'ontem', status:'aberto', quem:'Segurança', foto:true},
+  {id:2, tipo:'perdido', item:'Coletor de dados (inventário) da loja', local:'Doca / corredor de serviço', quando:'2 dias', status:'aberto', quem:'B-119', foto:false},
+  {id:3, tipo:'achado', item:'Crachá de funcionário (documento) — retirar na segurança', local:'Estacionamento G2', quando:'hoje', status:'aberto', quem:'A-112', foto:false},
+];
+let achFiltro='Todos';
+let achFoto=false; /* foto anexada no formulário (simulada no protótipo) */
+
+/* ===== ENTREGA ESPERADA (delivery proativo: lojista avisa a doca/segurança ANTES) =====
+   Complementa o interfone (reativo). O lojista avisa que espera um fornecedor/entrega e a
+   segurança recebe na doca sem precisar chamá-lo. */
+let entregasEsperadas = [
+  {id:1, un:'B-119', tipo:'Fornecedor (mercadoria)', quando:'hoje', status:'esperando'},
+];
+function entregaPend(un){ return entregasEsperadas.find(e=>e.un===un && e.status==='esperando'); }
+
+/* ===== BENCHMARK ANÔNIMO DO SHOPPING (retenção do superintendente) — médias da região.
+   Fonte: a PRÓPRIA base Giro (efeito de rede) + índices ABRASCE como seed no cold-start.
+   Só aparece com COORTE mínima (k-anonimato); nenhum shopping identificado (LGPD). */
+const REGIAO = { vacancia:9, inadimplencia:13, cduM2:58, adesaoFPP:55, coorte:8 };
+const COORTE_MIN = 7;        /* abaixo disso: "base em formação" (usa índice ABRASCE) */
+let benchDemoFraca=false;    /* toggle de demo p/ mostrar o estado "base em formação" */
+
+/* ===== AGENDA DO SHOPPING — um motor, duas visões =====
+   Lojista vê "o que me afeta" (interrupções, doca, assembleia da associação).
+   Superintendente: obrigações do ano caem no "Pra agir" (inbox único), e esta tela é o
+   calendário de planejamento. 'publico': lojista | sindico | ambos. Datas ancoradas em hoje=10/06. */
+let agendaEventos = [
+  {id:1, cat:'interrupcao', data:'2026-06-12', janela:'8h–11h', titulo:'Escada rolante do L2 em manutenção', afeta:'Piso L2', acao:'Oriente o cliente pelo elevador nesse horário.', publico:'lojista'},
+  {id:2, cat:'interrupcao', data:'2026-06-13', janela:'14h–17h', titulo:'Doca fechada para reparo', afeta:'Todos', acao:'Programe recebimentos fora da janela.', publico:'lojista'},
+  {id:3, cat:'interrupcao', data:'2026-06-18', janela:'7h–10h', titulo:'Dedetização das áreas comuns', afeta:'Todos', acao:'Proteja alimentos expostos antes das 7h.', publico:'ambos', base:'Dedetização semestral (vigilância sanitária)'},
+  {id:4, cat:'assembleia', data:'2026-06-25', janela:'19h', titulo:'Assembleia da Associação de Lojistas', afeta:'Todos', acao:'Vote pela pauta no app — vale como presença.', publico:'ambos', base:'Estatuto da associação · prestação de contas do FPP/CDU (Lei 8.245/91, art. 54 §2º)'},
+  {id:5, cat:'obrigacao', data:'2026-07-05', titulo:'AVCB — renovação (Bombeiros)', afeta:'Shopping', publico:'sindico', status:'pendente', base:'Sem AVCB válido o shopping é interditado'},
+  {id:6, cat:'obrigacao', data:'2026-07-20', titulo:'Alvará de funcionamento — renovação', afeta:'Shopping', publico:'sindico', status:'pendente', base:'Licença da prefeitura (funcionamento/localização)'},
+  {id:7, cat:'obrigacao', data:'2026-08-10', titulo:'Seguro do shopping — renovação', afeta:'Shopping', publico:'sindico', status:'pendente', base:'Seguro patrimonial e de RC do empreendimento'},
+  {id:8, cat:'mandato', data:'2026-09-15', titulo:'Fim do mandato da diretoria da Associação — eleição', afeta:'Shopping', publico:'sindico', status:'pendente', base:'Estatuto da Associação de Lojistas'},
+  {id:9, cat:'contrato', data:'2026-08-01', titulo:'Conservadora Brilhante — reajuste/renovação', afeta:'Shopping', publico:'sindico', status:'pendente', base:'Do contrato de Conservadora Brilhante: vigência até 01/08/2026, reajuste IPCA em agosto; janela de renegociação aberta desde 03/05/2026.'},
+];
+let agLembrete={};  /* id → true (lembrete opt-in, simulado) */
+const MEU_PISO='Piso L1';  /* demo: a loja B-305 (Renner) fica no piso L1 */
+/* Contratos de operação do shopping (conservadora, segurança…): o superintendente informa
+   poucos campos e o app DERIVA vencimento/reajuste/janela, que alimentam a Agenda. */
+let contratos = [
+  {id:1, nome:'Conservadora Brilhante', inicio:'2024-08-01', prazoMeses:24, dataBase:'8', indice:'IPCA', avisoDias:90, renovAuto:false, agendaId:9},
+];
+const MESES_ABREV=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
 let ocorrencias = [
   {id:1, un:'A-305', tipo:'Reclamação', titulo:'Vazamento no estacionamento — vaga G12', desc:'Está pingando água do teto sobre a vaga desde sábado.', quando:'08/06', status:'em análise', resposta:'Facilities identificou a origem; reparo agendado para 12/06.'},
@@ -1146,8 +1229,13 @@ function menuDemo(){
         <button class="chip ${perfilCondAtual()==='padrao'?'verde':'cinza'}" style="border:none; flex:1" onclick="setPerfilCond('padrao')">Padrão</button>
         <button class="chip ${perfilCondAtual()==='simples'?'verde':'cinza'}" style="border:none; flex:1" onclick="setPerfilCond('simples')">Simples</button>
       </div>
-      <div style="display:flex; gap:6px; flex-wrap:wrap">
+      <div class="sub" style="margin:0 0 4px; font-size:.72rem; letter-spacing:.04em; color:var(--cinza)">INFRAESTRUTURA &amp; OPERAÇÃO</div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px">
         ${[['reservas','Reservas'],['edi','Gi (IA)'],['portaria','Segurança'],['elevadores','Elevadores'],['triagem','Triagem'],['estoque','Estoque'],['integracoes','Integrações']].map(([k,l])=>`<button class="chip ${modulos[k]?'verde':'cinza'}" style="border:none" onclick="toggleModulo('${k}')">${l}</button>`).join('')}
+      </div>
+      <div class="sub" style="margin:0 0 4px; font-size:.72rem; letter-spacing:.04em; color:var(--cinza)">ENGAJAMENTO</div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap">
+        ${[['indicacoes','Indicações'],['achados','Achados'],['agenda','Agenda'],['benchmark','Benchmark'],['interfone','Interfone'],['entrega','Entrega esperada']].map(([k,l])=>`<button class="chip ${modulos[k]?'verde':'cinza'}" style="border:none" onclick="toggleModulo('${k}')">${l}</button>`).join('')}
       </div></div>
     <div class="item" style="display:block">
       <div class="linha1"><span class="nome">${tIco('cifrao')}Lojista (demo)</span><span class="chip ${MORADOR.emDia?'verde':'laranja'}" style="border:none">${MORADOR.emDia?'em dia':'em atraso'}</span></div>
@@ -1268,15 +1356,15 @@ const MENUS = {
 const PERFIS_NOMES={sindico:'Superintendente', conselho:'Conselho (Assoc.)', facilities:'Facilities', portaria:'Segurança & Doca', lojista:'Lojista', administradora:'Empreendedor'};
 let demoAberto=false; /* mantém o grupo "Demonstração" aberto entre re-renders do menu */
 /* ===== MÓDULOS / PLANO (demo): cada shopping liga só o que usa — nav, home e telas se adaptam ===== */
-let modulos={reservas:true, edi:true, portaria:true, elevadores:true, triagem:true, estoque:true, integracoes:true};
+let modulos={reservas:true, edi:true, portaria:true, elevadores:true, triagem:true, estoque:true, integracoes:true, indicacoes:true, achados:true, agenda:true, benchmark:true, interfone:true, entrega:true};
 const NAV_MOD={reservas:'reservas', mreservar:'reservas', triagem:'triagem', estoque:'estoque', mfalar:'edi'};
 function modOn(k){ return modulos[k]!==false; }
 function navItens(p){ return (MENUS[p]||[]).filter(it=>{const mk=NAV_MOD[it[0]]; return !mk || modOn(mk);}); }
 /* presets de DEMO: que módulos um tipo de shopping costuma ter (não é plano de preço) */
 const PERFIS_COND={
-  clube:['reservas','edi','portaria','elevadores','triagem','estoque','integracoes'],
-  padrao:['reservas','edi','portaria','elevadores'],
-  simples:['reservas','edi']
+  clube:['reservas','edi','portaria','elevadores','triagem','estoque','integracoes','indicacoes','achados','agenda','benchmark','interfone','entrega'],
+  padrao:['reservas','edi','portaria','elevadores','indicacoes','achados','agenda','benchmark','interfone','entrega'],
+  simples:['reservas','edi','achados','agenda']
 };
 const PERFIL_COND_LABEL={clube:'Shopping regional', padrao:'Shopping médio', simples:'Strip mall / galeria', custom:'Personalizado'};
 function perfilCondAtual(){ const a=Object.keys(modulos).filter(modOn).sort().join(','); for(const p in PERFIS_COND){ if(PERFIS_COND[p].slice().sort().join(',')===a) return p; } return 'custom'; }
@@ -1511,6 +1599,7 @@ TELAS.inicio = () => {
 
   ${praAgirCard()}
   ${enqueteResumoSindico()}
+  ${benchmarkCardSindico()}
   <h2>Gerir o shopping</h2>
   <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px">
     ${gerirEntrada('predio','Lojas & lojistas',"abrirUnidades()")}
@@ -1524,8 +1613,9 @@ TELAS.inicio = () => {
     ${gerirEntrada('pessoas','Fluxo de público',"irPara('fluxo')",[fluxoConv()+'% conv.','verde'])}
     ${gerirEntrada('predio','Aberturas de loja',"irPara('aberturas')",(()=>{const pend=aberturas.filter(a=>aberturaFeitos(a)<PASSOS_ABERTURA.length).length;return[pend?pend+' em obra':'ok',pend?'laranja':'verde'];})())}
     ${gerirEntrada('grafico','Fundo de Promoção (ROI)',"irPara('fpp')",(()=>{const f=fppInfo.campanhas.filter(c=>c.incremental);const r=f.length?(f.reduce((s,c)=>s+c.incremental/c.invest,0)/f.length):0;return[r?r.toFixed(1)+'×':'ok','verde'];})())}
-    ${gerirEntrada('importar','Integrações',"irPara('integracoes')",(()=>{const p=integracoes.filter(i=>i.status==='pendente'||i.status==='erro').length;return[p?''+p:'ok',p?'laranja':'verde'];})())}
+    ${modOn('integracoes')?gerirEntrada('importar','Integrações',"irPara('integracoes')",(()=>{const p=integracoes.filter(i=>i.status==='pendente'||i.status==='erro').length;return[p?''+p:'ok',p?'laranja':'verde'];})()):''}
     ${gerirEntrada('calendario','Agenda de reservas',"irPara('reservas')")}
+    ${modOn('agenda')?gerirEntrada('checklist','Agenda & obrigações',"irPara('agenda')",(()=>{const p=agendaEventos.some(e=>(e.publico==='sindico'||e.publico==='ambos')&&agStatus(e.data)[1]==='laranja');return[p?'a vencer':'ok',p?'laranja':'verde'];})()):''}
     ${gerirEntrada('robo',nomeAssist+' · fontes',"abaFontes='curadoria';irPara('fontesEdi')",(()=>{const lac=curadoria.lacunas.length;return[lac?''+lac:'ok',lac?'laranja':'verde'];})())}
   </div>
 <h2>Balancete de maio</h2>
@@ -2184,9 +2274,30 @@ TELAS.visitantes = () => {
   return `<div class="tela on">
   <div class="topo"><h1>${tIco("porta")}Visitantes</h1><p>Lista de hoje · ${fdata(hoje)}</p></div>
   <div class="botoes" style="margin-bottom:10px">
-    <button class="btn principal" style="padding:14px" onclick="validarQR()">${tIco('camera')}Validar QR do visitante</button>
-    <button class="btn claro" style="padding:14px" onclick="novaVisita()">+ Registrar na hora</button>
+    ${modOn('interfone')?`<button class="btn principal" style="padding:14px" onclick="chamarMorador()">${tIco('porta')}Chamar lojista (chegou agora)</button>`:''}
+    <button class="btn claro" style="padding:14px" onclick="validarQR()">${tIco('camera')}Validar QR</button>
   </div>
+  <div class="botoes" style="margin-bottom:10px">
+    <button class="btn claro" style="padding:12px" onclick="novaVisita()">+ Registrar na hora</button>
+    ${modOn('achados')?`<button class="btn claro" style="padding:12px" onclick="irPara('achados')">${tIco('lampada')}Achados e perdidos</button>`:''}
+  </div>
+  ${(()=>{if(!modOn('interfone'))return ''; const ch=chamadas.filter(c=>c.status!=='encerrada'&&c.status!=='entrou'); if(!ch.length) return '';
+    const rot={tocando:['chamando…','laranja'],autorizado:['autorizou ✓','verde'],recusado:['recusou','vermelho'],deixado:['deixar na doca','cinza']};
+    return `<h2>Chamando agora (${ch.length})</h2>${ch.map(c=>{const r=rot[c.status]||['',''];
+      return `<div class="item" style="border-color:${c.status==='autorizado'?'var(--verde)':c.status==='tocando'?'var(--laranja)':'var(--borda)'}">
+      <div class="linha1"><span class="nome">${c.nome}</span><span class="chip ${r[1]}">${r[0]}</span></div>
+      <div class="sub">${c.tipo} · ${c.un} · ${c.hora}</div>
+      ${c.status==='tocando'?`<div class="sub" style="margin-top:5px; color:var(--cinza)">Aguardando o lojista responder no app…</div>`:''}
+      ${c.status==='autorizado'?`<div class="botoes" style="justify-content:flex-end"><button class="btn claro" style="flex:0 0 auto" onclick="entradaChamada(${c.id})">→ Registrar entrada</button></div>`:''}
+      ${c.status==='deixado'?`<div class="botoes" style="justify-content:flex-end"><button class="btn claro" style="flex:0 0 auto" onclick="encerrarChamada(${c.id})">Recebido na doca ✓</button></div>`:''}
+      ${c.status==='recusado'?`<div class="botoes" style="justify-content:flex-end"><button class="btn claro" style="flex:0 0 auto" onclick="encerrarChamada(${c.id})">Dispensar</button></div>`:''}
+    </div>`;}).join('')}`;})()}
+  ${(()=>{const es=entregasEsperadas.filter(e=>e.status==='esperando'); if(!es.length) return '';
+    return `<h2>Entregas esperadas hoje (${es.length})</h2>${es.map(e=>`<div class="item" style="border-color:var(--verde)">
+      <div class="linha1"><span class="nome">${tIco('pacote')}${e.un} espera: ${e.tipo}</span><span class="chip verde">autorizado a receber</span></div>
+      <div class="sub" style="margin-top:3px">O lojista avisou — pode receber na doca. Registre a retirada depois.</div>
+      <div class="botoes" style="justify-content:flex-end"><button class="btn claro" style="flex:0 0 auto" onclick="receberEntregaEsperada(${e.id})">Recebi na doca ✓</button></div>
+    </div>`).join('')}`;})()}
 <h2>No shopping agora (${dentro.length})</h2>
   ${dentro.length?dentro.map(x=>card(x.v,x.ix)).join(''):'<div class="sub" style="margin:-6px 0 12px">Ninguém no shopping no momento.</div>'}
   ${espera.length?`<h2>Esperados hoje (${espera.length})</h2>${espera.map(x=>card(x.v,x.ix)).join('')}`:''}
@@ -2222,6 +2333,332 @@ function verVisitante(ix){
     ${v.status==='pré-autorizado'?`<div class="botoes" style="margin-top:12px"><button class="btn principal" onclick="entrada(${ix})">Registrar entrada</button></div>`:''}
     ${v.status==='entrou'?`<div class="botoes" style="margin-top:12px"><button class="btn claro" onclick="saida(${ix});fecharModal()">Registrar saída</button></div>`:''}`);
 }
+/* ===== INTERFONE VIRTUAL — lado da segurança/doca ===== */
+function chamarMorador(){
+  abrirModal(`<h3>${tIco('porta')}Chamar lojista — chegou agora</h3>
+    <div class="sub" style="margin-bottom:10px">Para quem <b>não estava pré-autorizado</b> — fornecedor/entrega na doca, prestador na entrada de serviço. O lojista recebe na hora no app e decide.</div>
+    <label>Quem chegou</label><input id="ch-n" placeholder="Ex.: Distribuidora Sul · ou 'Motoboy entrega'">
+    <label>Tipo</label><select id="ch-t"><option>Entregador</option><option>Prestador</option><option>Visita</option></select>
+    <div style="display:flex; gap:10px">
+      <div style="flex:0 0 40%"><label>Piso</label><select id="ch-torre" onchange="preencherUnidades('ch-torre','ch-u')"><option selected>Piso L1</option><option>Piso L2</option></select></div>
+      <div style="flex:1"><label>Loja</label><select id="ch-u"></select></div>
+    </div>
+    <button class="btn principal btn-grande" onclick="criarChamada()">${tIco('porta')}Tocar no app do lojista</button>
+    <div class="aviso-lgpd">A chamada é registrada com hora e resposta na trilha de acesso. Prestador/visita não passa sem o "sim" do lojista; entrega pode ser deixada na doca a pedido dele.</div>`);
+  preencherUnidades('ch-torre','ch-u');
+}
+function criarChamada(){
+  const n=$('#ch-n').value.trim(); if(!n){ toast('Diga quem chegou.'); return; }
+  const un=$('#ch-u').value, tipo=$('#ch-t').value;
+  const id=Math.max(0,...chamadas.map(c=>c.id))+1;
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  chamadas.unshift({id, un, nome:n, tipo, quando:'agora', status:'tocando', hora});
+  fecharModal(); toast('Chamando '+un+'… o lojista recebe agora no app.'); irPara('visitantes');
+}
+function responderChamada(id,acao){
+  const c=chamadas.find(x=>x.id===id); if(!c) return;
+  c.status=acao;
+  const msg={autorizado:'Autorizado! A segurança já foi avisada.',recusado:'Recusado — a segurança foi avisada.',deixado:'Ok! Pedimos pra segurança guardar na doca.'}[acao];
+  toast(msg); atualizar();
+}
+function entradaChamada(id){
+  const c=chamadas.find(x=>x.id===id); if(!c) return;
+  const hora=c.hora||new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  visitantes.unshift({nome:c.nome, un:c.un, tipo:c.tipo, quando:'Hoje', status:'entrou', doc:'', entrada:fdata(hoje)+' '+hora, saida:'', qr:false});
+  c.status='entrou'; toast('Entrada registrada — confira o documento.'); irPara('visitantes');
+}
+function encerrarChamada(id){ const c=chamadas.find(x=>x.id===id); if(c) c.status='encerrada'; irPara('visitantes'); }
+
+/* ===== BENCHMARK ANÔNIMO DO SHOPPING (retenção do superintendente) ===== */
+function benchmarkCardSindico(){
+  if(!modOn('benchmark')) return '';
+  const inad=Math.round(inadimplentes.length/60*100);
+  const melhor=inad<REGIAO.inadimplencia;
+  return `<button class="item" style="width:100%; text-align:left; display:block" onclick="verBenchmark()">
+    <div class="linha1"><span class="nome">${tIco('grafico')}Como seu shopping se compara</span><span class="chip ${melhor?'verde':'laranja'}">ver ›</span></div>
+    <div class="sub" style="margin-top:5px">Vacância, inadimplência, custo comum/m² e adesão ao FPP vs. a média de shoppings da região — só médias anônimas.</div>
+  </button>`;
+}
+function verBenchmark(){
+  const inad=Math.round(inadimplentes.length/60*100);
+  const vac=6, cdu=62, fpp=70;
+  const row=(lbl,meu,reg,tipo,menorMelhor,dica,ref)=>{
+    const d=meu-reg, bom=menorMelhor?d<0:d>0, naMedia=Math.abs(d)<=2;
+    const chip=naMedia?['na média','cinza']:bom?['melhor','verde']:['atenção','laranja'];
+    const fv=v=>tipo==='rs'?fmt(v)+'/m²':v+'%';
+    return `<div class="item" style="padding:11px 13px"><div class="linha1"><span class="nome" style="font-size:.9rem">${lbl}</span><span class="chip ${chip[1]}">${chip[0]}</span></div>
+      <div class="sub" style="margin-top:3px">Seu shopping <b>${fv(meu)}</b> · ${ref||'média da região'} ${fv(reg)}</div>
+      ${!naMedia&&!bom&&dica?`<div class="sub" style="margin-top:3px; color:var(--laranja)">${dica}</div>`:''}</div>`;
+  };
+  const coorte = benchDemoFraca?3:REGIAO.coorte;
+  const formacao = coorte<COORTE_MIN;
+  const refLbl = formacao?'índice ABRASCE':'média da região';
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('grafico')}Como seu shopping se compara</h3>
+    <div class="sub" style="margin-bottom:10px">Contra a <b>${formacao?'referência de mercado':'média de shoppings parecidos da região'}</b> — só médias agregadas e anônimas, nunca um shopping identificado (LGPD).</div>
+    ${formacao?`<div class="item" style="border-color:var(--laranja); background:var(--laranja-claro,#fff6ec)"><div class="sub" style="margin:0">${tIco('alerta')}<b>Base em formação:</b> ainda há poucos shoppings parecidos na sua região (${coorte}). Enquanto isso, a referência vem de <b>índices ABRASCE</b> — e fica mais precisa conforme a base cresce.</div></div>`:''}
+    ${row('Vacância (lojas vagas)', vac, REGIAO.vacancia, '%', true, 'Priorize o leasing dos espaços vagos e a proposta comercial.', refLbl)}
+    ${row('Inadimplência dos lojistas', inad, REGIAO.inadimplencia, '%', true, 'Reforce a régua de cobrança e o alerta de saúde do lojista.', refLbl)}
+    ${row('Custo comum / m² (CDU)', cdu, REGIAO.cduM2, 'rs', true, 'Acima da média — revise contratos e consumo; CDU alto pesa na retenção.', refLbl)}
+    ${row('Adesão ao FPP (campanhas)', fpp, REGIAO.adesaoFPP, '%', false, '', refLbl)}
+    <div class="sub" style="margin:10px 0 0; font-size:.78rem; color:var(--cinza)">${formacao?'Fonte: índices ABRASCE (vacância, inadimplência, vendas/m² por região/segmento), até a base local encorpar.':`Baseado em <b>${coorte}</b> shoppings parecidos (mesma faixa de nº de lojas e região) · fonte: base Giro + índices ABRASCE.`}</div>
+    <div class="aviso-lgpd">É sinal de gestão, não ranking público. Nenhum shopping vizinho aparece nominalmente; só entra na média com um mínimo de ${COORTE_MIN} shoppings na faixa (anonimato), e a participação é opt-in.</div>
+    <div class="botoes"><button class="btn claro" onclick="benchDemoFraca=!benchDemoFraca;verBenchmark()">${benchDemoFraca?'↩ Ver base consolidada':'Simular base em formação'}</button></div>
+    <button class="btn principal btn-grande" onclick="fecharModal()">Entendi</button>`);
+}
+
+/* ===== ENTREGA ESPERADA (delivery proativo) ===== */
+function entregaEsperadaCard(){
+  if(!modOn('entrega')) return '';
+  const e=entregaPend(MORADOR.un);
+  if(e) return `<div class="item" style="border-color:var(--verde)">
+    <div class="linha1"><span class="nome">${tIco('pacote')}Doca avisada: você espera uma entrega</span><span class="chip verde">pode receber</span></div>
+    <div class="sub" style="margin-top:4px">${e.tipo} · ${e.quando}. Quando chegar, a segurança recebe na doca — sem interfone.</div>
+    <div class="botoes" style="justify-content:flex-end"><button class="btn claro" style="flex:0 0 auto" onclick="cancelarEntregaEsperada(${e.id})">Cancelar aviso</button></div>
+  </div>`;
+  return `<button class="item" style="width:100%; text-align:left; display:block" onclick="avisarEntrega()">
+    <div class="linha1"><span class="nome">${tIco('pacote')}Espera um fornecedor/entrega hoje?</span><span class="chip cinza">avisar ›</span></div>
+    <div class="sub" style="margin-top:4px">Avise a doca (fornecedor, transportadora, motoboy) e a segurança recebe sem te ligar.</div>
+  </button>`;
+}
+function avisarEntrega(){
+  abrirModal(`<h3>${tIco('pacote')}Espero uma entrega na doca</h3>
+    <div class="sub" style="margin-bottom:10px">A segurança fica sabendo e pode <b>receber por você</b> na doca quando chegar — sem precisar te chamar.</div>
+    <label>O que você espera</label>
+    <select id="ee-t"><option>Fornecedor (mercadoria)</option><option>Transportadora</option><option>Motoboy / documento</option><option>Prestador</option><option>Outro</option></select>
+    <button class="btn principal btn-grande" onclick="criarEntregaEsperada()">Avisar a doca</button>
+    <div class="aviso-lgpd">Vale só para hoje e some ao fim do dia. A segurança confere e registra o recebimento na doca.</div>`);
+}
+function criarEntregaEsperada(){
+  const tipo=$('#ee-t').value;
+  const id=Math.max(0,...entregasEsperadas.map(e=>e.id))+1;
+  entregasEsperadas.unshift({id, un:MORADOR.un, tipo, quando:'hoje', status:'esperando'});
+  fecharModal(); toast('Doca avisada — pode receber sua entrega.'); atualizar();
+}
+function cancelarEntregaEsperada(id){ const e=entregasEsperadas.find(x=>x.id===id); if(e) e.status='cancelada'; toast('Aviso cancelado.'); atualizar(); }
+function receberEntregaEsperada(id){ const e=entregasEsperadas.find(x=>x.id===id); if(e) e.status='recebida'; toast('Entrega recebida na doca — lojista avisado.'); irPara('visitantes'); }
+
+/* ===== AGENDA DO SHOPPING ===== */
+function agStatus(data){ const [y,m,d]=data.split('-').map(Number); const dt=new Date(y,m-1,d); const diff=Math.round((dt-hoje)/86400000);
+  if(diff<0) return ['vencido','vermelho']; if(diff===0) return ['hoje','laranja']; if(diff<=30) return ['em '+diff+' dias','laranja']; return ['agendado','cinza']; }
+function agFmt(data){ const [y,m,d]=data.split('-').map(Number); const dt=new Date(y,m-1,d); const dias=['dom','seg','ter','qua','qui','sex','sáb']; return dias[dt.getDay()]+' '+String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0'); }
+function agIco(cat){ return {interrupcao:'chave',assembleia:'checklist',obrigacao:'alerta',contrato:'caderno',mandato:'pessoas'}[cat]||'calendario'; }
+function agToggleLembrete(id){ agLembrete[id]=!agLembrete[id]; toast(agLembrete[id]?'Pronto — te lembro 1 dia antes.':'Lembrete removido.'); irPara('agenda'); }
+/* obrigação acionável: o superintendente dá sequência dentro do app */
+function verObrigacao(id){
+  const e=agendaEventos.find(x=>x.id===id); if(!e) return;
+  const st=agStatus(e.data);
+  const vendor = e.cat==='obrigacao'||e.cat==='contrato';
+  const eleicao = e.cat==='mandato';
+  const resolvido = e.status==='resolvido';
+  const ct = contratos.find(c=>c.agendaId===e.id);
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco(agIco(e.cat))}${e.titulo}</h3>
+    <div class="sub" style="margin-bottom:4px">Prazo: <b>${agFmt(e.data)}</b> · <span class="chip ${resolvido?'verde':e.status==='andamento'?'laranja':st[1]}">${resolvido?'resolvido ✓':e.status==='andamento'?'em andamento':st[0]}</span></div>
+    <div class="sub" style="margin-bottom:8px; font-size:.82rem">${clip()}${e.base||''}</div>
+    <div class="item" style="padding:9px 12px; margin-bottom:8px"><div class="sub" style="margin:0; font-size:.79rem"><b>De onde vem esta data:</b> ${ct?`contrato de ${ct.nome} — você informou início/prazo/reajuste e o app derivou o vencimento`:(eleicao?'estatuto da associação — início do mandato + duração':'validade do próprio documento (AVCB / apólice / alvará) — anexe o PDF pra o Gi ler')}</div></div>
+    ${resolvido
+      ? `<div class="item" style="border-color:var(--verde); background:var(--verde-claro)"><div class="sub" style="margin:0">${tIco('check')}Concluído e comprovante no acervo. Próxima renovação reagendada e na trilha de auditoria.</div></div>`
+      : `<div class="botoes" style="flex-direction:column">
+        <button class="btn claro btn-grande" style="justify-content:flex-start" onclick="${ct?`novoContrato(${ct.id})`:'novoContrato()'}">${tIco('contrato')}${ct?'Ver / atualizar o contrato (datas)':'Cadastrar o prazo / enviar o documento'}</button>
+        ${vendor?`<button class="btn principal btn-grande" onclick="obrProvidenciar(${id})">${tIco('maleta')}Pedir 3 orçamentos aos fornecedores</button>`:''}
+        ${eleicao?`<button class="btn principal btn-grande" onclick="fecharModal();irPara('assembleia')">${tIco('checklist')}Incluir a eleição na pauta da assembleia</button>`:''}
+        <button class="btn claro btn-grande" style="justify-content:flex-start" onclick="obrRascunho(${id})">${clip()}Rascunho do Gi (pedido/comunicado pronto)</button>
+        <button class="btn claro btn-grande" style="justify-content:flex-start" onclick="obrDelegar(${id})">${tIco('pessoas')}Delegar ao auxiliar</button>
+        ${e.status!=='andamento'?`<button class="btn claro btn-grande" style="justify-content:flex-start" onclick="obrStatus(${id},'andamento')">${tIco('lapis')}Marcar em andamento</button>`:''}
+        <button class="btn claro btn-grande" style="justify-content:flex-start" onclick="obrResolver(${id})">${tIco('check')}Marcar resolvido — anexar comprovante</button>
+      </div>`}
+    <div class="aviso-lgpd">Cada ação entra na trilha de auditoria. Ao resolver, o comprovante (novo AVCB/apólice/alvará) vai pro acervo e a próxima renovação é reagendada — o superintendente do ano seguinte herda o calendário.</div>`);
+}
+function obrProvidenciar(id){ const e=agendaEventos.find(x=>x.id===id); if(!e) return; e.status='andamento';
+  if(typeof logAudit==='function') logAudit(`iniciou a renovação de "${e.titulo}" (pediu orçamentos)`,'Superintendente');
+  fecharModal(); toast('Pedido de orçamento gerado — entra em "em andamento".'); atualizar(); }
+function obrRascunho(id){ const e=agendaEventos.find(x=>x.id===id); toast('O Gi rascunhou o pedido/comunicado de "'+(e?e.titulo.split('—')[0].trim():'')+'" — revise e envie.'); }
+function obrDelegar(id){ const e=agendaEventos.find(x=>x.id===id); if(!e) return; if(typeof logAudit==='function') logAudit(`delegou "${e.titulo}" ao auxiliar`,'Superintendente'); toast('Delegado ao auxiliar (sob sua responsabilidade) — auditado.'); }
+function obrStatus(id,s){ const e=agendaEventos.find(x=>x.id===id); if(!e) return; e.status=s; if(typeof logAudit==='function') logAudit(`marcou "${e.titulo}" como ${s}`,'Superintendente'); fecharModal(); toast('Marcado como '+s+'.'); atualizar(); }
+function obrResolver(id){ const e=agendaEventos.find(x=>x.id===id); if(!e) return; e.status='resolvido';
+  if(typeof logAudit==='function') logAudit(`concluiu "${e.titulo}" e anexou o comprovante`,'Superintendente');
+  const proxAno=(+e.data.split('-')[0])+1;
+  fecharModal(); toast('Resolvido! Comprovante no acervo; próxima renovação reagendada para '+proxAno+'.'); atualizar(); }
+/* ===== CADASTRO DE CONTRATO — de onde a Agenda pega as datas ===== */
+function contratoDeriva(inicio, prazoMeses, dataBaseMes, avisoDias){
+  const [y,m,d]=inicio.split('-').map(Number);
+  const venc=new Date(y, (m-1)+(+prazoMeses), d);
+  const janela=new Date(venc); janela.setDate(janela.getDate()-(+avisoDias||0));
+  const rm=(+dataBaseMes)-1; let reaj=new Date(hoje.getFullYear(), rm, 1); if(reaj<hoje) reaj=new Date(hoje.getFullYear()+1, rm, 1);
+  const fD=dt=>String(dt.getDate()).padStart(2,'0')+'/'+String(dt.getMonth()+1).padStart(2,'0')+'/'+dt.getFullYear();
+  const iso=dt=>dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  return {vencF:fD(venc), janelaF:fD(janela), reajF:fD(reaj), vencIso:iso(venc)};
+}
+function novoContrato(id){
+  const c=(id!=null&&contratos.find(x=>x.id===id))||{};
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('contrato')}${id!=null?'Contrato · datas':'Cadastrar contrato'}</h3>
+    <div class="sub" style="margin-bottom:8px">Informe o essencial — o app <b>deriva</b> vencimento, próximo reajuste e a janela de renegociação. Tem o PDF? O Gi lê pra você.</div>
+    <button class="btn claro btn-grande" style="margin-bottom:10px; justify-content:flex-start" onclick="ediExtraiContrato()">${tIco('robo')}📄 Enviar PDF do contrato — o Gi extrai as datas</button>
+    <label>Fornecedor / serviço</label><input id="ct-nome" value="${c.nome||''}" placeholder="Ex.: Conservadora Brilhante">
+    <div style="display:flex; gap:10px">
+      <div style="flex:1"><label>Início da vigência</label><input id="ct-ini" type="date" value="${c.inicio||''}"></div>
+      <div style="flex:0 0 36%"><label>Prazo (meses)</label><input id="ct-prazo" type="number" value="${c.prazoMeses||''}" placeholder="24"></div>
+    </div>
+    <div style="display:flex; gap:10px">
+      <div style="flex:0 0 30%"><label>Reajuste (mês)</label><input id="ct-base" type="number" min="1" max="12" value="${c.dataBase||''}" placeholder="8"></div>
+      <div style="flex:1"><label>Índice</label><select id="ct-ind"><option ${c.indice==='IPCA'?'selected':''}>IPCA</option><option ${c.indice==='IGPM'?'selected':''}>IGPM</option><option ${c.indice==='INCC'?'selected':''}>INCC</option></select></div>
+      <div style="flex:0 0 30%"><label>Aviso (dias)</label><input id="ct-aviso" type="number" value="${c.avisoDias||90}" placeholder="90"></div>
+    </div>
+    <label class="item" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; margin-top:2px"><input type="checkbox" id="ct-auto" ${c.renovAuto?'checked':''} style="width:18px; height:18px; flex:0 0 auto"> <span class="sub" style="margin:0">Renovação automática (senão, precisa avisar antes do fim)</span></label>
+    <button class="btn claro btn-grande" style="margin-top:6px" onclick="previewContrato()">${tIco('grafico')}Ver as datas que o app deriva</button>
+    <div id="ct-preview" style="margin-top:8px"></div>
+    <button class="btn principal btn-grande" onclick="salvarContrato(${id!=null?id:'null'})">Salvar — a Agenda passa a usar estas datas</button>
+    <div class="aviso-lgpd">A data não é chumbada nem digitada duas vezes: você informa início/prazo/reajuste e o app calcula o resto e alimenta a Agenda e o "Pra agir". O PDF fica no acervo como <b>fonte</b>, e o Gi só sugere — você confirma.</div>`);
+}
+function previewContrato(){
+  const inicio=$('#ct-ini').value, prazo=$('#ct-prazo').value, base=$('#ct-base').value, ind=$('#ct-ind').value, aviso=$('#ct-aviso').value||90;
+  if(!inicio||!prazo||!base){ toast('Informe início, prazo e o mês do reajuste pra calcular.'); return; }
+  const d=contratoDeriva(inicio,prazo,base,aviso);
+  const pv=$('#ct-preview'); if(pv) pv.innerHTML=`<div class="item" style="border-color:var(--verde); background:var(--verde-claro)">
+    <div class="sub" style="margin:0 0 4px; font-weight:700">Datas derivadas (o app calcula):</div>
+    <div class="sub" style="margin:0">${tIco('check')}Vencimento: <b>${d.vencF}</b></div>
+    <div class="sub" style="margin:0">${tIco('check')}Próximo reajuste (${ind}): <b>${d.reajF}</b></div>
+    <div class="sub" style="margin:0">${tIco('check')}Janela de renegociação abre: <b>${d.janelaF}</b> (${aviso} dias antes)</div>
+    <div class="sub" style="margin:5px 0 0; font-size:.76rem; color:var(--cinza)">É esta data que alimenta a Agenda e vira pendência no "Pra agir".</div></div>`;
+}
+function ediExtraiContrato(){
+  $('#ct-nome').value='Conservadora Brilhante'; $('#ct-ini').value='2024-08-01'; $('#ct-prazo').value='24'; $('#ct-base').value='8'; $('#ct-ind').value='IPCA'; $('#ct-aviso').value='90';
+  toast('O Gi leu o PDF e preencheu as datas — confira e salve (ele sugere, você valida).'); previewContrato();
+}
+function salvarContrato(id){
+  const nome=$('#ct-nome').value.trim(), inicio=$('#ct-ini').value, prazo=$('#ct-prazo').value, base=$('#ct-base').value, ind=$('#ct-ind').value, aviso=$('#ct-aviso').value||90, auto=$('#ct-auto').checked;
+  if(!nome||!inicio||!prazo||!base){ toast('Preencha fornecedor, início, prazo e o mês do reajuste.'); return; }
+  const der=contratoDeriva(inicio,prazo,base,aviso);
+  let c;
+  if(id!=null){ c=contratos.find(x=>x.id===id); Object.assign(c,{nome,inicio,prazoMeses:+prazo,dataBase:base,indice:ind,avisoDias:+aviso,renovAuto:auto}); }
+  else { const nid=Math.max(0,...contratos.map(x=>x.id))+1; const aid=Math.max(0,...agendaEventos.map(x=>x.id))+1;
+    c={id:nid,nome,inicio,prazoMeses:+prazo,dataBase:base,indice:ind,avisoDias:+aviso,renovAuto:auto,agendaId:aid}; contratos.unshift(c);
+    agendaEventos.push({id:aid,cat:'contrato',data:der.vencIso,titulo:`${nome} — reajuste/renovação`,afeta:'Shopping',publico:'sindico',status:'pendente'});
+  }
+  const ev=agendaEventos.find(x=>x.id===c.agendaId);
+  if(ev){ ev.data=der.vencIso; ev.titulo=`${nome} — reajuste/renovação`; ev.status='pendente';
+    ev.base=`Do contrato de ${nome}: vigência até ${der.vencF}, reajuste ${ind} em ${MESES_ABREV[(+base)-1]}${auto?' · renovação automática':`; avisar ${aviso} dias antes`}. Janela de renegociação abre ${der.janelaF}.`; }
+  if(typeof logAudit==='function') logAudit(`cadastrou/atualizou o contrato de ${nome} (vigência até ${der.vencF})`,'Superintendente');
+  fecharModal(); toast('Contrato salvo — a Agenda já usa a data derivada ('+der.vencF+').'); irPara('agenda');
+}
+TELAS.agenda = () => {
+  const isS = perfil==='sindico';
+  const evs = agendaEventos.filter(e=> isS ? (e.publico==='sindico'||e.publico==='ambos') : (e.publico==='lojista'||e.publico==='ambos'))
+    .slice().sort((a,b)=>a.data.localeCompare(b.data));
+  const acion=e=> isS && (e.cat==='obrigacao'||e.cat==='contrato'||e.cat==='mandato');
+  const card=e=>{const st=agStatus(e.data);
+    const chip = e.status==='resolvido'?['resolvido ✓','verde']:e.status==='andamento'?['em andamento','laranja']:st;
+    const inner=`<div class="linha1"><span class="nome">${tIco(agIco(e.cat))}${e.titulo}</span><span class="chip ${chip[1]}">${chip[0]}${acion(e)?' ›':''}</span></div>
+    <div class="sub" style="margin-top:4px">${agFmt(e.data)}${e.janela?' · '+e.janela:''}${e.afeta&&e.afeta!=='Shopping'?' · '+e.afeta:''}</div>
+    ${e.acao&&!isS?`<div class="sub" style="margin-top:3px">${e.acao}</div>`:''}
+    ${e.base?`<div class="sub" style="margin-top:3px; font-size:.76rem; color:var(--cinza)">${clip()}${e.base}</div>`:''}
+    ${!isS?`<div class="botoes" style="justify-content:flex-end; margin-top:6px"><button class="btn claro" style="flex:0 0 auto" onclick="agToggleLembrete(${e.id})">${agLembrete[e.id]?'✓ Vou te lembrar':'🔔 Lembrar'}</button></div>`:''}`;
+    return acion(e)?`<button class="item" style="width:100%; text-align:left; display:block" onclick="verObrigacao(${e.id})">${inner}</button>`:`<div class="item">${inner}</div>`;};
+  if(isS){
+    return `<div class="tela on">
+      <div class="topo" style="display:flex; align-items:center; gap:12px"><button class="btn claro" style="flex:0 0 auto; padding:8px 12px" onclick="irPara('inicio')">‹ Voltar</button><div><h1 style="margin:0">${tIco('checklist')}Agenda & obrigações</h1><p style="margin:2px 0 0">O ano do superintendente — o que vem pela frente</p></div></div>
+      <button class="btn claro btn-grande" style="margin:2px 0 10px; justify-content:flex-start" onclick="novoContrato()">${tIco('contrato')}+ Cadastrar contrato / prazo — o app deriva as datas</button>
+      ${evs.map(card).join('')}
+      <div class="aviso-lgpd">Prazos de <b>equipamento</b> (escada rolante, extintores, laudos/ARTs) ficam em <b>Manutenção</b>, e os <b>contratos de loja</b> no painel de renovatória. Aqui é a governança do ano (AVCB, alvará, seguro, mandato). A obrigação que entra na janela de ação vira pendência no <b>"Pra agir"</b> — inbox único.</div>
+    </div>`;
+  }
+  const afetaMe=e=> e.afeta==='Todos' || e.afeta===MEU_PISO;
+  const meus=evs.filter(afetaMe), outros=evs.filter(e=>!afetaMe(e));
+  return `<div class="tela on">
+    <div class="topo" style="display:flex; align-items:center; gap:12px"><button class="btn claro" style="flex:0 0 auto; padding:8px 12px" onclick="irPara('mhome')">‹ Voltar</button><div><h1 style="margin:0">${tIco('calendario')}Agenda do shopping</h1><p style="margin:2px 0 0">O que vai acontecer — e o que afeta sua loja</p></div></div>
+    <div class="secao">AFETA VOCÊ · ${MORADOR.un}</div>
+    ${meus.map(card).join('')||vazio('check','Nada afeta sua loja agora','Interrupções de doca, escada rolante ou energia que peguem o seu piso aparecem aqui.')}
+    ${outros.length?`<div class="secao">OUTROS AVISOS DO SHOPPING</div>${outros.map(card).join('')}`:''}
+    <div class="aviso-lgpd">Interrupções programadas (doca, escada rolante, áreas comuns), dedetização e assembleia da associação num lugar só. Ative o lembrete e o Gi te avisa 1 dia antes — sem caçar no grupo do WhatsApp.</div>
+  </div>`;
+};
+function agendaMoradorCard(){
+  if(!modOn('agenda')) return '';
+  const prox=agendaEventos.filter(e=>(e.publico==='lojista'||e.publico==='ambos')&&(e.afeta==='Todos'||e.afeta===MEU_PISO))
+    .slice().sort((a,b)=>a.data.localeCompare(b.data))[0];
+  if(!prox) return '';
+  const st=agStatus(prox.data);
+  return `<button class="item" style="width:100%; text-align:left; display:block; border-color:var(--laranja)" onclick="irPara('agenda')">
+    <div class="linha1"><span class="nome">${tIco('calendario')}Agenda do shopping — afeta sua loja</span><span class="chip ${st[1]}">${st[0]} ›</span></div>
+    <div class="sub" style="margin-top:5px">${prox.titulo}${prox.janela?' · '+prox.janela:''}. ${prox.acao||''}</div>
+  </button>`;
+}
+
+/* ===== ACHADOS E PERDIDOS ===== */
+TELAS.achados = () => {
+  const noFiltro=perdidos.filter(p=>achFiltro==='Todos'||(achFiltro==='Achados'?p.tipo==='achado':p.tipo==='perdido'));
+  const abertos=noFiltro.filter(p=>p.status!=='resolvido');
+  const resolvidos=noFiltro.filter(p=>p.status==='resolvido');
+  const voltar = perfil==='portaria' ? 'visitantes' : 'mhome';
+  const cnt=t=>perdidos.filter(p=>p.status!=='resolvido'&&(t==='Todos'||(t==='Achados'?p.tipo==='achado':p.tipo==='perdido'))).length;
+  const cardAberto=p=>`<div class="item">
+    <div style="display:flex; gap:10px">
+      ${p.foto?`<div style="flex:0 0 72px">${fotoAchado()}</div>`:''}
+      <div style="flex:1; min-width:0">
+        <div class="linha1"><span class="nome">${p.tipo==='achado'?'🟢 Achado':'🔴 Perdido'} · ${p.item}</span></div>
+        <div class="sub" style="margin-top:3px">${p.local} · ${p.quando} · registrado por ${p.quem}</div>
+      </div>
+    </div>
+    <div class="botoes" style="margin-top:8px">
+      <button class="btn claro" onclick="toast('No produto final: abre o contato de ${p.quem} pra combinar a devolução/retirada — sem expor telefone no mural.')">${p.tipo==='achado'?'É meu — quero retirar':'Eu achei isso'}</button>
+      <button class="btn claro" onclick="marcarResolvido(${p.id})">Marcar reencontrado</button>
+    </div>
+  </div>`;
+  return `<div class="tela on">
+  <div class="topo" style="display:flex; align-items:center; gap:12px">
+    <button class="btn claro" style="flex:0 0 auto; padding:8px 12px" onclick="irPara('${voltar}')">‹ Voltar</button>
+    <div><h1 style="margin:0">${tIco('lampada')}Achados e perdidos</h1><p style="margin:2px 0 0">Perdeu ou achou algo no shopping? Aqui se reencontram.</p></div>
+  </div>
+  <div style="display:flex; gap:6px; padding:10px 0 4px">
+    ${['Todos','Achados','Perdidos'].map(f=>{const n=cnt(f);
+      return `<button class="chip ${achFiltro===f?'verde':'cinza'}" style="border:none; flex:1; cursor:pointer" onclick="achFiltro='${f}';irPara('achados')">${f}${n?` · ${n}`:''}</button>`;}).join('')}
+  </div>
+  ${abertos.map(cardAberto).join('')||vazio('lampada','Nada em aberto por aqui','Ninguém perdeu nem achou nada nesta aba agora. Registre um item se precisar.')}
+  ${resolvidos.length?`<div class="secao">JÁ REENCONTRADOS (${resolvidos.length})</div>
+    ${resolvidos.map(p=>`<div class="item feito" style="opacity:.65; padding:11px 13px"><div class="linha1"><span class="nome" style="font-size:.9rem">${p.tipo==='achado'?'🟢':'🔴'} ${p.item}</span><span class="chip verde" style="border:none">reencontrado ✓</span></div><div class="sub" style="margin-top:2px">${p.local} · ${p.quem}</div></div>`).join('')}`:''}
+  <button class="btn principal btn-grande" style="margin-top:12px" onclick="novoAchado()">+ Registrar item</button>
+  <div class="aviso-lgpd">Só descrição do item e onde — <b>sem foto de pessoas nem telefone exposto</b>. O contato pra combinar a devolução é intermediado pelo app (LGPD). Item de valor achado deve ser entregue na segurança/doca. Achados do público do mall (cliente) seguem pelo SAC do shopping.</div>
+</div>`;
+};
+/* foto do item (simulada) — ajuda a reconhecer; SÓ o objeto */
+function fotoAchado(){
+  return `<svg viewBox="0 0 120 90" role="img" aria-label="Foto do item (simulação)" style="width:100%; border-radius:9px; display:block; background:#e9e2d3">
+    <rect width="120" height="90" fill="#efe9dc"/><rect y="60" width="120" height="30" fill="#d9cfb8"/>
+    <circle cx="44" cy="46" r="12" fill="none" stroke="#8a7a53" stroke-width="4"/>
+    <rect x="54" y="44" width="26" height="5" rx="2" fill="#8a7a53"/>
+    <rect x="74" y="40" width="5" height="6" fill="#8a7a53"/><rect x="66" y="40" width="4" height="6" fill="#8a7a53"/>
+    <circle cx="80" cy="30" r="5" fill="#c8a34a"/>
+    <text x="60" y="82" text-anchor="middle" font-size="8" fill="#8a7f6a" font-family="sans-serif">foto do item</text>
+  </svg>`;
+}
+function toggleAchFoto(){
+  achFoto=!achFoto;
+  const b=$('#ac-foto-btn'), pv=$('#ac-foto-prev');
+  if(b) b.textContent = achFoto?'✓ Foto anexada — remover':'📷 Anexar foto do item (opcional)';
+  if(pv){ pv.style.display=achFoto?'block':'none'; pv.innerHTML=achFoto?fotoAchado():''; }
+}
+function novoAchado(){
+  achFoto=false;
+  abrirModal(`<h3>${tIco('lampada')}Registrar item</h3>
+    <label>É um…</label><select id="ac-t"><option value="achado">Achei algo (quero devolver)</option><option value="perdido">Perdi algo (procuro)</option></select>
+    <label>O quê</label><input id="ac-i" placeholder="Ex.: Molho de chaves, coletor de dados…">
+    <label>Onde</label><input id="ac-l" placeholder="Ex.: Praça de alimentação, doca, estacionamento G2">
+    <div style="margin:4px 0 10px">
+      <button type="button" id="ac-foto-btn" class="btn claro" style="width:100%; justify-content:center" onclick="toggleAchFoto()">📷 Anexar foto do item (opcional)</button>
+      <div id="ac-foto-prev" style="margin-top:8px; max-width:120px; display:none"></div>
+    </div>
+    <button class="btn principal btn-grande" onclick="salvarAchado()">Publicar</button>
+    <div class="aviso-lgpd"><b>Foto só do objeto</b> — ajuda a reconhecer. Nada de pessoas. E <b>documento, cartão ou crachá não leva foto</b> (têm nome/rosto): entregue na segurança/doca e registre só "documento achado".</div>`);
+}
+function salvarAchado(){
+  const tipo=$('#ac-t').value, item=($('#ac-i').value||'').trim(), local=($('#ac-l').value||'').trim();
+  if(!item){ toast('Descreva o item.'); return; }
+  const id=Math.max(0,...perdidos.map(p=>p.id))+1;
+  const quem = perfil==='portaria' ? 'Segurança' : MORADOR.un;
+  perdidos.unshift({id, tipo, item, local:local||'não informado', quando:'agora', status:'aberto', quem, foto:achFoto});
+  achFiltro=tipo==='achado'?'Achados':'Perdidos'; achFoto=false;
+  fecharModal(); toast('Publicado em achados e perdidos.'); irPara('achados');
+}
+function marcarResolvido(id){ const p=perdidos.find(x=>x.id===id); if(p) p.status='resolvido'; toast('Marcado como reencontrado. 🎉'); irPara('achados'); }
 function entrada(ix){
   const v=visitantes[ix];
   abrirModal(`<h3>Registrar entrada — ${v.nome}</h3>
@@ -2690,7 +3127,7 @@ TELAS.mhome = () => {
      como fallback. Rollback: versoes/v2.38_*.html */
   return `<div class="tela on">
   <div class="topo" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px">
-    <div><h1>Oi, ${MORADOR.nome.split(' ')[0]}!</h1><p>${MORADOR.un} · ${MORADOR.papel} · ${COND.nome}</p></div>
+    <div><h1>Oi, ${MORADOR.nome.split(' ')[0]}!</h1><button onclick="verImoveis()" style="background:none; border:none; padding:0; margin:0; color:var(--cinza); font-family:inherit; font-size:inherit; cursor:pointer; text-align:left">${MORADOR.un} · ${MORADOR.papel} · ${COND.nome}${meusImoveis.length>1?' <span style="color:var(--verde-escuro); font-weight:700">▾ trocar loja</span>':''}</button></div>
     ${(()=>{const u=notificacoesMorador().filter(n=>!n.lida).length;
       return `<button aria-label="Notificações${u?` — ${u} nova${u>1?'s':''}`:''}" onclick="verNotificacoes()" style="position:relative; flex:0 0 auto; background:none; border:none; padding:6px; margin-top:2px; color:var(--texto); cursor:pointer">
         <span style="display:inline-block; width:24px; height:24px">${ico('sino')}</span>
@@ -2704,7 +3141,21 @@ TELAS.mhome = () => {
   </div>
   <div id="mhome-resposta"></div>
 
+  ${(()=>{if(!modOn('interfone'))return ''; const c=respPend(MORADOR.un); if(!c) return '';
+    return `<div class="item" style="border:2px solid var(--laranja); background:var(--laranja-claro,#fff6ec); animation:pop .22s ease-out">
+    <div class="linha1"><span class="nome">${tIco('porta')}Alguém na doca/entrada agora</span><span class="chip laranja">chamando</span></div>
+    <div class="sub" style="margin:5px 0 8px"><b>${c.nome}</b> · ${c.tipo} · procurando a ${c.un}, às ${c.hora}.</div>
+    <div class="botoes">
+      <button class="btn principal" onclick="responderChamada(${c.id},'autorizado')">✓ Autorizar</button>
+      ${c.tipo==='Entregador'?`<button class="btn claro" onclick="responderChamada(${c.id},'deixado')">Deixar na doca</button>`:''}
+      <button class="btn claro" onclick="responderChamada(${c.id},'recusado')">Recusar</button>
+    </div>
+    <div class="sub" style="margin-top:6px; font-size:.76rem; color:var(--cinza)">Interfone pelo app — sua resposta vai na hora pra segurança, com registro (LGPD).</div>
+  </div>`;})()}
+
   <div class="secao">AGORA</div>
+  ${agendaMoradorCard()}
+  ${entregaEsperadaCard()}
   ${(()=>{const est=estadoVotacao(); const j=assembleia.votoJanela; const votou=!!assembleia.votoRemoto[MORADOR.un]; const proc=assembleia.procuracoes[MORADOR.un];
     if(est==='agendada') return `<div class="item"><div class="linha1"><span class="nome">${tIco('checklist')}Assembleia 25/06</span><span class="chip cinza">votação abre ${j.abre}</span></div>
       <div class="sub" style="margin-top:5px">A votação remota abre em ${j.abre}. Você poderá votar à distância ou dar procuração — vale como presença.</div></div>`;
@@ -2744,6 +3195,9 @@ TELAS.mhome = () => {
     <button onclick="autorizarVisita()"><span class="ic">${ico('porta')}</span><b>Autorizar visitante</b><small>QR direto na segurança</small></button>
     <button onclick="irPara('mfalar')"><span class="ic">${ico('balao')}</span><b>Falar com o superintendente</b><small>sugestão, reclamação</small></button>
     <button onclick="verTransparencia()"><span class="ic">${ico('cifrao')}</span><b>Pra onde vai meu dinheiro</b><small>contas do shopping</small></button>
+    ${modOn('indicacoes')?`<button onclick="irPara('indicacoes')"><span class="ic">${ico('balao')}</span><b>Indicações entre lojistas</b><small>fornecedores que os vizinhos usam</small></button>`:''}
+    ${modOn('achados')?`<button onclick="irPara('achados')"><span class="ic">${ico('lampada')}</span><b>Achados e perdidos</b><small>perdeu ou achou algo?</small></button>`:''}
+    ${modOn('agenda')?`<button onclick="irPara('agenda')"><span class="ic">${ico('calendario')}</span><b>Agenda do shopping</b><small>o que afeta sua loja</small></button>`:''}
   </div>
   <button class="item" style="width:100%; text-align:left; display:block; margin-top:10px" onclick="centralPrivacidade()">
     <div class="linha1"><span class="nome">${tIco('cadeado')}Privacidade e meus dados</span><span style="color:var(--cinza)">›</span></div>
@@ -2801,6 +3255,117 @@ function centralPrivacidade(){
     <div class="aviso-lgpd">Encarregado de dados (DPO) do shopping: ${dpo}. Alguns registros têm guarda obrigatória por lei (atas de assembleia, prestação de contas) e não podem ser excluídos enquanto exigidos.</div>
     <button class="btn principal btn-grande" onclick="fecharModal()">Fechar</button>`);
 }
+/* ===== INDICAÇÕES ENTRE LOJISTAS ===== */
+const estrelas=n=>`<span style="color:var(--gold,#eab14a); letter-spacing:1px">${'★'.repeat(n)}<span style="color:var(--borda)">${'★'.repeat(5-n)}</span></span>`;
+function indPreCad(i){
+  /* sinergia com o acesso de serviço/doca: prestador muito indicado (3+ lojas) pode virar prestador recorrente */
+  return i.apoios.length>=3;
+}
+TELAS.indicacoes = () => {
+  const lista = indicacoes.filter(i=>indFiltro==='Todas'||i.cat===indFiltro).sort((a,b)=>b.apoios.length-a.apoios.length);
+  const cats = indCats.filter(c=>c==='Todas'||indicacoes.some(i=>i.cat===c));
+  return `<div class="tela on">
+  <div class="topo" style="display:flex; align-items:center; gap:12px">
+    <button class="btn claro" style="flex:0 0 auto; padding:8px 12px" onclick="irPara('mhome')">‹ Voltar</button>
+    <div><h1 style="margin:0">${tIco('balao')}Indicações entre lojistas</h1><p style="margin:2px 0 0">Fornecedores que os vizinhos de corredor já usam e aprovam</p></div>
+  </div>
+
+  <div class="item" style="border-color:var(--verde); background:var(--verde-claro)">
+    <div class="sub" style="margin:0">Precisa de montador, contador, refrigeração, vitrinista? Veja quem <b>outros lojistas já usam</b> — indicação com o nome de quem confia. Você <b>contrata direto</b>: o shopping e o Giro não são parte, não cobram nada e não intermedeiam.</div>
+  </div>
+
+  <div style="display:flex; gap:6px; overflow-x:auto; padding:10px 0 4px; -webkit-overflow-scrolling:touch">
+    ${cats.map(c=>`<button class="chip ${indFiltro===c?'verde':'cinza'}" style="border:none; flex:0 0 auto; cursor:pointer" onclick="indFiltro='${c}';irPara('indicacoes')">${c}</button>`).join('')}
+  </div>
+
+  ${lista.map(i=>{const euApoiei=i.apoios.includes(MORADOR.un);
+    return `<div class="item">
+    <div class="linha1"><span class="nome">${i.nome}</span><span class="chip cinza" style="border:none">${i.cat}</span></div>
+    <div class="sub" style="margin:4px 0 2px">${estrelas(i.nota)} · <b>${i.apoios.length}</b> ${i.apoios.length===1?'loja recomenda':'lojas recomendam'}</div>
+    <div class="sub" style="margin:6px 0">“${i.texto}”</div>
+    <div class="sub" style="margin:0; font-size:.78rem">Indicado por ${i.anon?'<b>um lojista</b> (preferiu não se identificar)':`<b>${i.quem}</b>`}</div>
+    ${indPreCad(i)?`<div class="sub" style="margin-top:6px; font-size:.78rem; color:var(--verde-escuro)">${clip()}Muito indicado — a segurança pode pré-cadastrar como prestador recorrente no acesso de serviço/doca.</div>`:''}
+    <div class="botoes" style="margin-top:8px">
+      <button class="btn ${euApoiei?'claro':'principal'}" onclick="tambemRecomendo(${i.id})">${euApoiei?'✓ Você também recomenda':'👍 Também recomendo'}</button>
+      <button class="btn claro" onclick="toast('No produto final: abre o contato que ${i.anon?'o lojista':i.quem} compartilhou — você fala e contrata direto.')">Ver contato</button>
+    </div>
+  </div>`;}).join('')||vazio('balao','Nenhuma indicação nesta categoria','Seja o primeiro a indicar um fornecedor de confiança pra essa necessidade.')}
+
+  <button class="btn principal btn-grande" style="margin-top:12px" onclick="novaIndicacao()">${tIco('lampada')}Indicar um fornecedor</button>
+  <div class="aviso-lgpd"><b>Isto não substitui as empresas homologadas do shopping</b> — obra de loja e serviços que exigem homologação seguem a regra do empreendimento. A indicação aqui é <b>de lojista para lojista</b>, para o dia a dia da operação: o shopping não emprega, não fiscaliza e não responde por quem você contrata. Quem indica <b>escolhe</b> aparecer com a loja ou de forma anônima (LGPD). A superintendência não endossa nomes; isto não é publicidade paga.</div>
+</div>`;
+};
+function tambemRecomendo(id){
+  const i=indicacoes.find(x=>x.id===id); if(!i) return;
+  const idx=i.apoios.indexOf(MORADOR.un);
+  if(idx>=0){ i.apoios.splice(idx,1); toast('Recomendação retirada.'); }
+  else { i.apoios.push(MORADOR.un); toast(indPreCad(i)?'Valeu! Já são '+i.apoios.length+' lojas — a segurança pode pré-cadastrar como recorrente.':'Valeu! Sua recomendação conta pros vizinhos de corredor.'); }
+  irPara('indicacoes');
+}
+function novaIndicacao(){
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('lampada')}Indicar um fornecedor</h3>
+    <div class="sub" style="margin-bottom:10px">Recomende alguém que <b>você já usa e confia</b> na sua operação. Vira uma indicação pros outros lojistas — você não fica responsável pelo serviço deles, só está passando um contato bom.</div>
+    <label class="sub" style="font-weight:700">Categoria</label>
+    <select id="ind-cat" style="width:100%; padding:11px; border:1px solid var(--borda); border-radius:10px; margin:4px 0 10px">${indCats.filter(c=>c!=='Todas').map(c=>`<option>${c}</option>`).join('')}</select>
+    <label class="sub" style="font-weight:700">Nome / empresa</label>
+    <input id="ind-nome" placeholder="Ex.: Marcenaria Bom Corte" style="width:100%; padding:11px; border:1px solid var(--borda); border-radius:10px; margin:4px 0 10px">
+    <label class="sub" style="font-weight:700">Por que recomenda</label>
+    <textarea id="ind-txt" rows="2" placeholder="Montou meu estoque à noite sem parar a operação…" style="width:100%; padding:11px; border:1px solid var(--borda); border-radius:10px; margin:4px 0 10px"></textarea>
+    <label class="item" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:11px 13px">
+      <input type="checkbox" id="ind-anon" style="width:18px; height:18px; flex:0 0 auto">
+      <span class="sub" style="margin:0">Indicar <b>anonimamente</b> (sem mostrar minha loja). Por padrão sua indicação aparece como <b>${MORADOR.un}</b> — é o que dá confiança pro vizinho.</span>
+    </label>
+    <div class="aviso-lgpd">Você compartilha o contato do fornecedor; o shopping não guarda vínculo de emprego nem intermedeia pagamento. Pode retirar sua indicação quando quiser.</div>
+    <button class="btn principal btn-grande" onclick="salvarIndicacao()">Publicar indicação</button>
+    <button class="btn claro" onclick="fecharModal()">Cancelar</button>`);
+}
+function salvarIndicacao(){
+  const cat=$('#ind-cat').value, nome=($('#ind-nome').value||'').trim(), texto=($('#ind-txt').value||'').trim(), anon=$('#ind-anon').checked;
+  if(!nome){ toast('Dá um nome pra indicação.'); return; }
+  const id=Math.max(0,...indicacoes.map(i=>i.id))+1;
+  indicacoes.unshift({id, cat, nome, quem:MORADOR.un, anon, nota:5, texto:texto||'Recomendo, de confiança.', apoios:[MORADOR.un], recorrente:false});
+  indFiltro=cat;
+  fecharModal(); toast('Indicação publicada — obrigado por ajudar a vizinhança de lojistas!'); irPara('indicacoes');
+}
+
+/* ===== MULTI-LOJA — um login, vários shoppings ===== */
+function verImoveis(){
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('predio')}Minhas lojas</h3>
+    <div class="sub" style="margin-bottom:10px">Um login, mais de um shopping. Ao trocar, o app <b>muda pra marca daquele shopping</b> — as cores dizem em qual ambiente você está.</div>
+    ${meusImoveis.map((im,ix)=>{const cor=(TEMAS[im.tema]&&TEMAS[im.tema].cores[1])||'var(--verde)';
+      return `<button class="item" style="width:100%; text-align:left; display:flex; align-items:center; gap:12px${im.atual?'; border-color:var(--verde); background:var(--verde-claro)':''}" onclick="trocarImovel(${ix})">
+      <span style="flex:0 0 auto; width:34px; height:34px; border-radius:10px; background:${cor}; display:flex; align-items:center; justify-content:center; color:#fff">${ico('predio')}</span>
+      <span style="flex:1; min-width:0"><span class="linha1"><span class="nome">${im.cond}</span>${im.atual?'<span class="chip verde">em uso</span>':'<span class="chip cinza">trocar ›</span>'}</span>
+      <span class="sub" style="display:block; margin-top:2px">Loja ${im.un} · ${im.papel} · ${im.cidade}</span></span>
+    </button>`;}).join('')}
+    <button class="btn claro btn-grande" style="margin-top:6px" onclick="adicionarImovel()">${tIco('predio')}+ Adicionar loja</button>
+    <div class="aviso-lgpd">Cada vínculo é conferido pela superintendência do respectivo shopping. Seus dados de um shopping não vazam pro outro, e cada um mantém a sua identidade visual (white-label).</div>`);
+}
+function trocarImovel(ix){
+  const im=meusImoveis[ix]; if(!im) return;
+  if(im.atual){ fecharModal(); return; }
+  meusImoveis.forEach(x=>x.atual=false); im.atual=true;
+  MORADOR.un=im.un; MORADOR.papel=im.papelCurto||MORADOR.papel;
+  COND.nome=im.cond; COND.cidade=(im.cidade||'').split(' · ')[0];
+  corBg=null; corCustom=null; corGold=null; if(TEMAS[im.tema]) temaAtual=im.tema; aplicarTema();
+  fecharModal(); toast('Agora no '+im.cond+' — a marca do app mudou junto.'); irPara('mhome');
+}
+function adicionarImovel(){
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('predio')}Adicionar loja</h3>
+    <div class="sub" style="margin-bottom:10px">Informe onde você tem uma loja. O pedido vai à superintendência daquele shopping pra aprovar o vínculo.</div>
+    <label>Shopping</label><input id="ai-c" placeholder="Nome ou código do shopping">
+    <label>Loja (LUC)</label><input id="ai-u" placeholder="Ex.: Piso L2, loja 210">
+    <label>Seu vínculo</label><select id="ai-p"><option>Operadora</option><option>Franqueada</option><option>Proprietária da marca</option></select>
+    <button class="btn principal btn-grande" onclick="salvarImovel()">Enviar pedido à superintendência</button>
+    <div class="aviso-lgpd">Enquanto não confirmarem, a loja aparece como "aguardando aprovação" — sem acesso a faturamento, encargos ou dados da LUC.</div>`);
+}
+function salvarImovel(){
+  const c=($('#ai-c').value||'').trim(), u=($('#ai-u').value||'').trim();
+  if(!c||!u){ toast('Informe o shopping e a loja.'); return; }
+  meusImoveis.push({cond:c, un:u, papel:$('#ai-p').value+' · aguardando aprovação', papelCurto:'operadora', cidade:'—', tema:'classico', atual:false});
+  fecharModal(); toast('Pedido enviado — a superintendência do '+c+' vai aprovar seu vínculo.'); verImoveis();
+}
+
 /* a barra de comando usa o MESMO motor do ${nomeAssist} — intenção vira ação ali mesmo.
    Uma por tela (mesmo id), com placeholder no dialeto de cada perfil. */
 /* avatar compacto do Gi (na barra de comando e nas respostas) — anima por html[data-edi=...] */
@@ -3896,14 +4461,14 @@ function verPrestacao(finKey){
 
 /* ===== ZELADOR: rotina, triagem e estoque (Seu Carlos approved) ===== */
 let rotina = [
-  {t:'Ronda geral dos espaços comerciais', freq:'Diária', feito:true,  resp:'Carlos (facilities)'},
-  {t:'Leitura do nível da caixa d’água', freq:'Diária', feito:true, resp:'Carlos (facilities)', leitura:'14.200 L'},
-  {t:'Conferência de portões e iluminação', freq:'Diária', feito:false, resp:'João (porteiro dia)'},
-  {t:'Limpeza hall, elevadores e escadas', freq:'Diária', feito:false, resp:'Maria (auxiliar)'},
-  {t:'Teste do gerador em vazio', freq:'Semanal (sex)', feito:false, resp:'Carlos (facilities)'},
-  {t:'Verificação das luzes de emergência', freq:'Semanal', feito:false, resp:'Pedro (porteiro noite)'},
-  {t:'Extintores: lacre, pressão e validade', freq:'Mensal', feito:false, resp:'Carlos (facilities)'},
-  {t:'Ronda de infiltração — cobertura e subsolo', freq:'Mensal', feito:false, resp:'Carlos (facilities)'},
+  {t:'Ronda geral dos espaços comerciais', freq:'Diária', feito:true,  resp:'Carlos (facilities)', local:false, hora:'10/06 07:12'},
+  {t:'Leitura do nível da caixa d’água', freq:'Diária', feito:true, resp:'Carlos (facilities)', leitura:'14.200 L', ponto:'Casa de bombas · QR-CX01', local:true, hora:'10/06 07:34'},
+  {t:'Conferência de portões e iluminação', freq:'Diária', feito:false, resp:'João (porteiro dia)', ponto:'Portaria de serviço · QR-POR'},
+  {t:'Limpeza hall, elevadores e escadas', freq:'Diária', feito:false, resp:'Maria (auxiliar)', ponto:'Hall L1 · QR-HAL'},
+  {t:'Teste do gerador em vazio', freq:'Semanal (sex)', feito:false, resp:'Carlos (facilities)', ponto:'Quadro elétrico · QR-QE'},
+  {t:'Verificação das luzes de emergência', freq:'Semanal', feito:false, resp:'Pedro (porteiro noite)', ponto:'Quadro elétrico · QR-QE'},
+  {t:'Extintores: lacre, pressão e validade', freq:'Mensal', feito:false, resp:'Carlos (facilities)', ponto:'Corredor de serviço · QR-EXT'},
+  {t:'Ronda de infiltração — cobertura e subsolo', freq:'Mensal', feito:false, resp:'Carlos (facilities)', ponto:'Cobertura · QR-INF'},
 ];
 const ESCALA_HOJE='Carlos (facilities) 7h–16h · João (porteiro) 6h–18h · Pedro (porteiro) 18h–6h · Maria (auxiliar) 8h–17h';
 TELAS.rotina = () => {
@@ -3927,11 +4492,20 @@ TELAS.rotina = () => {
     <div class="sub" style="margin-top:5px">Tudo que você registrou hoje, com hora e foto — mande ao superintendente num toque.</div></button>
   ${provaReconhecida?`<div class="item" style="border-color:var(--verde); background:var(--verde-claro)"><div class="linha1"><span class="nome">${tIco('check')}O superintendente deu visto na sua prova</span><span class="chip verde">${provaReconhecida}</span></div><div class="sub" style="margin-top:3px">Seu trabalho foi reconhecido — obrigado.</div></div>`:''}
   <div class="secao" id="rotina-lista">ROTINA</div>
+  <button class="btn principal btn-grande" style="margin:2px 0 10px" onclick="escanearPonto()">${tIco('camera')}Escanear ponto — QR no equipamento</button>
+  <div class="sub" style="margin:-4px 0 10px; font-size:.8rem">Chegou no equipamento? Leia o adesivo dali — o app já sabe qual tarefa é. Ou registre pela lista abaixo.</div>
   ${rotina.map((r,ix)=>({r,ix})).sort((a,b)=>(a.r.feito?1:0)-(b.r.feito?1:0)).map(({r,ix})=>`<div class="item ${r.feito?'feito':''}">
     <div class="linha1"><span class="nome">${r.feito?tIco('check'):''}${r.t}</span><span class="chip ${r.feito?'verde':'cinza'}">${r.freq}</span></div>
-    <div class="linha1" style="margin-top:4px; align-items:center; gap:8px"><span class="sub" style="margin:0; min-width:0">responsável: <b>${r.resp}</b>${r.leitura?` · leitura: <b>${r.leitura}</b>`:''}${r.feito?` · <span class="chip ${r.local?'verde':'laranja'}" style="border:none; font-size:.64rem">${r.local?tIco('check')+'confirmado no local':'manual · sem QR'}</span>`:''}</span>${!r.feito?`<span style="display:flex; gap:6px; flex:0 0 auto"><button class="btn principal" style="padding:7px 12px; font-size:12.5px; margin:0" onclick="escanearRotina(${ix})">${tIco('camera')}Escanear no local</button><button class="btn claro" style="padding:7px 10px; font-size:12px; margin:0" onclick="marcarRotina(${ix})">manual</button></span>`:''}</div>
+    <div class="sub" style="margin-top:4px">responsável: <b>${r.resp}</b>${r.leitura?` · leitura: <b>${r.leitura}</b>`:''}${!r.feito&&r.ponto?` · <span style="color:var(--cinza)">ponto: ${r.ponto}</span>`:''}</div>
+    ${r.feito
+      ? `<div style="margin-top:6px; display:flex; align-items:center; gap:7px; flex-wrap:wrap">${r.local
+          ? `<span class="chip verde" style="font-size:.72rem; border:none">${tIco('check')}QR no local</span><span class="sub" style="margin:0; font-size:.78rem">${r.ponto||''} · ${r.hora||''}</span>`
+          : `<span class="chip laranja" style="font-size:.72rem; border:none">manual · sem QR</span><span class="sub" style="margin:0; font-size:.78rem">${r.hora||''}</span>`}</div>`
+      : `<div class="botoes" style="margin-top:8px">${r.ponto
+          ? `<button class="btn claro" style="flex:1; padding:9px; font-size:13px" onclick="abrirPonto('${r.ponto}')">${tIco('camera')}Escanear ${r.ponto.split('· ').pop()}</button><button class="btn claro" style="flex:0 0 auto; padding:9px 14px; font-size:13px" onclick="marcarRotina(${ix})">manual</button>`
+          : `<button class="btn claro" style="width:100%; padding:9px; font-size:13px" onclick="marcarRotina(${ix})">${tIco('check')}Registrar — ronda itinerante (sem QR)</button>`}</div>`}
   </div>`).join('')}
-  <div class="aviso-lgpd">Cada marcação registra quem fez e quando. Leituras (caixa d'água) pedem o número — o valor de hoje comparado ao de ontem é o que denuncia vazamento.</div>
+  <div class="aviso-lgpd"><b>Um QR por ponto</b> (não um único do shopping): ler o adesivo no equipamento prova que a verificação foi feita ali, na hora — e o app referencia a tarefa sozinho. Pontos com mais de uma tarefa (ex.: quadro elétrico) abrem todas de uma vez. A ronda itinerante fica como registro manual, <b>sinalizado ao superintendente</b>. Leituras pedem o número.</div>
   ${modOn('reservas')&&eventos.length?`<div class="secao">EVENTOS A PREPARAR</div>
   ${eventos.map(r=>`<div class="item"><div class="linha1"><span class="nome">${tIco('calendario')}${r.a}</span><span class="chip verde">${String(r.d).padStart(2,'0')}/${String(r.mes).padStart(2,'0')}</span></div><div class="sub">Loja ${r.u} · deixar limpo e liberar o acesso na data</div></div>`).join('')}`:''}
   <div class="secao">EQUIPE &amp; TURNO</div>
@@ -3973,6 +4547,31 @@ function confirmarLeitura(ix){
   rotina[ix].feito=true; rotina[ix].leitura=v; rotina[ix].local=false;
   fecharModal(); atualizar(); toast('Leitura registrada (manual)');
 }
+/* Scanner único: lê o QR do equipamento e o app referencia a(s) tarefa(s) daquele ponto */
+function escanearPonto(){
+  const pend = rotina.filter(r=>r.ponto && !r.feito);
+  const pontos = [...new Set(pend.map(r=>r.ponto))];
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('camera')}Escanear ponto</h3>
+    <div class="sub" style="margin-bottom:10px">Aponte a câmera para o <b>QR/NFC fixado no equipamento</b>. O app identifica o ponto e já mostra o que verificar ali — você não procura a tarefa na lista.</div>
+    <div style="border:2px dashed var(--verde); border-radius:12px; padding:20px; text-align:center; color:var(--verde-escuro); font-weight:800; background:var(--verde-claro); margin-bottom:12px">${tIco('camera')} lendo o QR do ponto…</div>
+    ${pontos.length?`<div class="sub" style="font-weight:700; margin-bottom:6px">Simular: qual adesivo você leu?</div>
+    ${pontos.map(p=>{const n=pend.filter(r=>r.ponto===p).length; return `<button class="btn claro" style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:6px" onclick="abrirPonto('${p}')"><span>${p}</span><span class="chip cinza">${n} tarefa${n>1?'s':''}</span></button>`;}).join('')}`
+      : '<div class="item" style="text-align:center"><div class="sub" style="margin:0">Tudo verificado por aqui hoje. 🎉</div></div>'}
+    <div class="aviso-lgpd"><b>Um QR por ponto</b>, não um único do shopping: ler o adesivo ali prova a presença física naquele equipamento, na hora. No produto, grava geolocalização e autoria no ato.</div>`);
+}
+/* abre um ponto (após ler o QR) e lista a(s) tarefa(s) dali pra confirmar */
+function abrirPonto(p){
+  const tarefas = rotina.map((r,ix)=>({r,ix})).filter(x=>x.r.ponto===p && !x.r.feito);
+  if(!tarefas.length){ toast('Nada pendente nesse ponto.'); return; }
+  abrirModal(`<h3 style="display:flex; align-items:center; gap:8px">${tIco('check')}${p}</h3>
+    <div class="sub" style="margin-bottom:10px">QR lido ✓ — você está no ponto. Confirme o que verificou aqui${tarefas.length>1?' (este ponto tem mais de uma tarefa)':''}:</div>
+    ${tarefas.map(({r,ix})=>{const leit=r.t.toLowerCase().includes('leitura');
+      return `<div class="item" style="padding:11px 13px">
+        <div class="linha1"><span class="nome" style="font-size:.92rem">${r.t}</span><span class="chip cinza">${r.freq}</span></div>
+        <div class="botoes" style="margin-top:8px"><button class="btn principal" style="flex:1; padding:8px; font-size:13px" onclick="${leit?`escanearRotina(${ix})`:`confirmarScan(${ix})`}">${tIco('check')}${leit?'Confirmar e informar leitura':'Marcar feito'}</button></div>
+      </div>`;}).join('')}
+    <div class="aviso-lgpd">Registra o ponto, a hora e quem escaneou na trilha de auditoria.</div>`);
+}
 function passagemTurno(){
   /* invertido: quem registra É o turno que sai (contexto fixo). Só pergunta
      quem assume e o que precisa saber — sem combo de pares pra decifrar */
@@ -4012,20 +4611,29 @@ const PRESTADORES=[
 ];
 /* ===== CENTRAL DE INTEGRAÇÕES (configuração — superintendente / administradora) ===== */
 let integracoes = [
-  {fam:'Comunicação', nome:'WhatsApp Business', sub:'Avisos, cobrança e respostas do Gi pelo número oficial do shopping.', status:'conectada', sync:'há 4 min', autor:'Administradora', quando:'12/05', dono:'carteira'},
-  {fam:'Financeiro', nome:'PIX / banco', sub:'Gera o PIX dos encargos e dá baixa automática quando o lojista paga.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira'},
-  {fam:'Financeiro', nome:'Boleto registrado', sub:'Emissão e conciliação de boletos bancários.', status:'pendente', det:'Falta o convênio do banco — aguardando a administradora liberar.', autor:'—', quando:'—', dono:'carteira'},
-  {fam:'Financeiro', nome:'ERP contábil', sub:'Exporta os lançamentos pro sistema contábil da administradora.', status:'conectada', sync:'ontem', autor:'Administradora', quando:'12/05', dono:'carteira'},
-  {fam:'Financeiro', nome:'Vendas (PDV / adquirente)', sub:'Captura o faturamento das lojas direto do PDV/hub de varejo — sem digitação e sem subdeclaração; o lojista só confirma.', status:'conectada', sync:'há 20 min', autor:'Administradora', quando:'22/05', dono:'carteira'},
-  {fam:'Segurança & Acesso', nome:'Control iD iDFace', sub:'Facial + cartão; o sistema provisiona e revoga as credenciais sozinho.', status:'conectada', sync:'há 2 min', autor:'Superintendente', quando:'20/05', dono:'condominio'},
-  {fam:'Segurança & Acesso', nome:'Cancela veicular (TAG/placa)', sub:'Leitura de TAG e placa na entrada da estacionamento.', status:'conectada', sync:'há 9 min', autor:'Superintendente', quando:'20/05', dono:'condominio'},
-  {fam:'Predial / IoT', nome:'Telemetria de elevador', sub:'O sensor da conservadora dispara o aviso de parada automaticamente.', status:'erro', det:'Sensor da Piso B sem responder desde ontem — o aviso manual segue funcionando.', autor:'Superintendente', quando:'18/05', dono:'condominio'},
-  {fam:'Predial / IoT', nome:'CFTV / câmeras', sub:'Liga o gravador de imagens aos eventos de acesso.', status:'naoconfig', autor:'—', quando:'—', dono:'condominio'},
-  {fam:'Predial / IoT', nome:'Contadores de fluxo (people counting)', sub:'Contagem anônima de público por câmera/wi-fi — alimenta a conversão do lojista e o ROI do FPP.', status:'conectada', sync:'há 8 min', autor:'Superintendente', quando:'22/05', dono:'condominio'},
-  {fam:'Administradora / ERP', nome:'Sistema da administradora', sub:'Sincroniza carteira, taxas e prestação de contas com o ERP.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira'},
-  {fam:'Documentos', nome:'Assinatura digital', sub:'Atas e comunicados assinados com validade jurídica.', status:'pendente', det:'Plano contratado — falta o primeiro signatário confirmar o cadastro.', autor:'Superintendente', quando:'21/05', dono:'condominio'},
+  {fam:'Comunicação', nome:'WhatsApp Business', sub:'Avisos, cobrança e respostas do Gi pelo número oficial do shopping.', status:'conectada', sync:'há 4 min', autor:'Administradora', quando:'12/05', dono:'carteira', proto:'Cloud API (Meta) + webhook', badge:'nativo', edge:false},
+  {fam:'Financeiro', nome:'PIX / banco', sub:'Gera o PIX dos encargos e dá baixa automática quando o lojista paga.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira', proto:'API PIX (BACEN) + webhook', badge:'nativo', edge:false},
+  {fam:'Financeiro', nome:'Boleto registrado', sub:'Emissão e conciliação de boletos bancários.', status:'pendente', det:'Falta o convênio do banco — aguardando a administradora liberar.', autor:'—', quando:'—', dono:'carteira', proto:'CNAB / convênio bancário', badge:'homologado', edge:false},
+  {fam:'Financeiro', nome:'ERP contábil', sub:'Exporta os lançamentos pro sistema contábil da administradora.', status:'conectada', sync:'ontem', autor:'Administradora', quando:'12/05', dono:'carteira', proto:'API / arquivo (CSV·OFX)', badge:'homologado', edge:false},
+  {fam:'Financeiro', nome:'Vendas (PDV / adquirente)', sub:'Captura o faturamento das lojas direto do PDV/hub de varejo — sem digitação e sem subdeclaração; o lojista só confirma.', status:'conectada', sync:'há 20 min', autor:'Administradora', quando:'22/05', dono:'carteira', proto:'API do PDV/hub + webhook', badge:'homologado', edge:false},
+  {fam:'Segurança & Acesso', nome:'Control iD iDFace', sub:'Facial + cartão; o sistema provisiona e revoga as credenciais sozinho.', status:'conectada', sync:'há 2 min', autor:'Superintendente', quando:'20/05', dono:'condominio', proto:'REST API TCP/IP', badge:'nativo', edge:true},
+  {fam:'Segurança & Acesso', nome:'Controle de acesso (outras marcas)', sub:'Intelbras, ZKTeco, Hikvision, Dahua — via SDK do fabricante ou modo genérico Wiegand.', status:'naoconfig', autor:'—', quando:'—', dono:'condominio', proto:'SDK / Wiegand·relé', badge:'solicitar', edge:true},
+  {fam:'Segurança & Acesso', nome:'Cancela veicular (TAG/placa)', sub:'Leitura de TAG e placa na entrada da estacionamento.', status:'conectada', sync:'há 9 min', autor:'Superintendente', quando:'20/05', dono:'condominio', proto:'LPR/UHF · relé', badge:'homologado', edge:true},
+  {fam:'Predial / IoT', nome:'Telemetria de elevador', sub:'O sensor da conservadora dispara o aviso de parada automaticamente.', status:'erro', det:'Sensor da Piso B sem responder desde ontem — o aviso manual segue funcionando.', autor:'Superintendente', quando:'18/05', dono:'condominio', proto:'webhook da conservadora', badge:'homologado', edge:false},
+  {fam:'Predial / IoT', nome:'CFTV / câmeras', sub:'Descobre as câmeras por ONVIF e liga aos eventos de acesso.', status:'naoconfig', autor:'—', quando:'—', dono:'condominio', proto:'ONVIF / RTSP', badge:'nativo', edge:true},
+  {fam:'Predial / IoT', nome:'Contadores de fluxo (people counting)', sub:'Contagem anônima de público por câmera/wi-fi — alimenta a conversão do lojista e o ROI do FPP.', status:'conectada', sync:'há 8 min', autor:'Superintendente', quando:'22/05', dono:'condominio', proto:'sensor/câmera + API', badge:'homologado', edge:true},
+  {fam:'Administradora / ERP', nome:'Sistema da administradora', sub:'Sincroniza carteira, taxas e prestação de contas com o ERP.', status:'conectada', sync:'há 1 h', autor:'Administradora', quando:'12/05', dono:'carteira', proto:'REST API (ex.: Superlógica v2)', badge:'nativo', edge:false},
+  {fam:'Documentos', nome:'Assinatura digital', sub:'Atas e comunicados assinados com validade jurídica (Lei 14.063/2020).', status:'pendente', det:'Plano contratado — falta o primeiro signatário confirmar o cadastro.', autor:'Superintendente', quando:'21/05', dono:'condominio', proto:'REST API + webhook', badge:'nativo', edge:false},
 ];
 const STATUS_INT={conectada:['conectada','verde'], pendente:['pendente','laranja'], erro:['erro','vermelho'], naoconfig:['não configurada','cinza']};
+const BADGE_INT={nativo:['conector nativo','verde'], homologado:['homologado','cinza'], solicitar:['SDK sob solicitação','laranja']};
+/* Ponte local (edge): elo seguro entre os aparelhos de IP interno (acesso, câmera, contagem) e a nuvem.
+   Conexão só de saída; credenciais no cofre; biometria guardada no local. */
+let pontes = [
+  {id:1, nome:'Ponte da doca', local:'Segurança — doca', status:'online', desde:'20/05', heartbeat:'há 40 s', aparelhos:['Control iD iDFace','Cancela veicular (TAG/placa)']},
+];
+const CATALOGO_EDGE=['Control iD iDFace','Câmera ONVIF (entrada)','Câmera ONVIF (estacionamento)','Cancela veicular (TAG/placa)','Contadores de fluxo (people counting)'];
+const EDGE_INTEGRACAO={'Control iD iDFace':'Control iD iDFace','Cancela veicular (TAG/placa)':'Cancela veicular (TAG/placa)','Câmera ONVIF (entrada)':'CFTV / câmeras','Câmera ONVIF (estacionamento)':'CFTV / câmeras','Contadores de fluxo (people counting)':'Contadores de fluxo (people counting)'};
 function acaoIntegracao(nome, acao){
   const verbo={testar:'testada — tudo certo',reconectar:'reconectada',concluir:'conexão concluída',conectar:'conectada',configurar:'configuração aberta'}[acao]||acao;
   const ator=(perfil==='administradora'||admContexto)?'Administradora':'Superintendente';
@@ -4213,25 +4821,42 @@ function cancelarConvite(ix){ const p=pessoas[ix]; if(!p) return; const nm=p.nom
    É demonstração — nenhuma credencial real é digitada; tokens/chaves ficam no "cofre". */
 const CONFIG_INT={
  'WhatsApp Business':{passos:['Verificar a conta Meta Business do shopping','Cadastrar o número oficial e validar por SMS','Aprovar os templates utility (cobrança, aviso)','Ligar o webhook que conecta o Gi'],
-   campos:[['Número oficial','+55 11 4002-8922','ro'],['Conta Meta Business','verificada','ro'],['Provedor (BSP)','Meta Cloud API','select'],['Janela de serviço 24h (Gi)','ligada','toggle']]},
+   campos:[['Número oficial','+55 11 4002-8922','ro'],['Conta Meta Business','verificada','ro'],['Provedor (BSP)','Meta Cloud API · 360dialog · Zenvia · Take Blip','select'],['Janela de serviço 24h (Gi)','ligada','toggle']],
+   nota:'Requer conta Meta Business verificada e templates utility aprovados. O número é oficial do shopping, não pessoal. Bot bidirecional só via WhatsApp Business API (BSP).'},
  'PIX / banco':{passos:['Escolher o banco/PSP do shopping','Informar a chave PIX (CNPJ do shopping)','Autorizar a leitura de extrato pra baixa automática'],
-   campos:[['Banco / PSP','Banco do Brasil','select'],['Chave PIX','12.345.678/0001-90 (CNPJ)','ro'],['Tipo de PIX','estático (copia-e-cola)','select'],['Baixa automática por extrato','ligada','toggle']]},
+   campos:[['Banco / PSP','Banco do Brasil · Sicoob · Itaú · Efí · Asaas · Iugu','select'],['Chave PIX','12.345.678/0001-90 (CNPJ)','ro'],['Tipo de PIX','cobrança com vencimento (API) ou estático','select'],['Baixa automática por extrato','ligada','toggle']],
+   nota:'A forma manual (PIX copia-e-cola com baixa por extrato) funciona no dia 1; a API do PSP automatiza a cobrança com vencimento e a conciliação.'},
  'Boleto registrado':{passos:['Solicitar o convênio de cobrança ao banco','Informar o nº do convênio e a carteira','Homologar o layout de registro (CNAB)'],
-   campos:[['Banco emissor','—','select'],['Convênio / carteira','aguardando liberação','ro'],['Cedente','Shopping Pátio Central','ro'],['Encargos de mora','conforme o contrato de locação (Lei 8.245/91)','ro']]},
+   campos:[['Banco emissor','BB · Itaú · Bradesco · Sicoob · Santander','select'],['Convênio / carteira','aguardando liberação','ro'],['Cedente','Shopping Pátio Central','ro'],['Encargos de mora','conforme o contrato de locação (Lei 8.245/91)','ro']],
+   nota:'Depende do convênio de cobrança do banco (CNAB 240/400). Também dá pra emitir via PSP/gateway (Asaas, Efí, Iugu) sem convênio próprio.'},
  'ERP contábil':{passos:['Escolher o sistema contábil da administradora','Mapear o plano de contas','Definir a frequência de exportação'],
-   campos:[['Sistema contábil','Domínio Sistemas','select'],['Plano de contas','mapeado','ro'],['Formato','CSV / OFX','select'],['Frequência','diária','select']]},
+   campos:[['Sistema contábil','Domínio · Contmatic · Sage','select'],['Plano de contas','mapeado','ro'],['Formato','API · CSV · OFX','select'],['Frequência','diária','select']]},
+ 'Vendas (PDV / adquirente)':{passos:['Escolher o PDV/hub de varejo das lojas','Autorizar a captura do faturamento','Definir a conferência do lojista'],
+   campos:[['PDV / hub','Linx · TOTVS · Cielo · Stone · PDVs das lojas','select'],['Captura','faturamento por loja/dia','ro'],['Conferência do lojista','só confirmar','toggle']],
+   nota:'Integração automatiza o faturamento (base do aluguel percentual). A forma manual — o lojista declara pelo app/WhatsApp — funciona sem PDV; a captura por PDV/adquirente é o tier que tira a digitação e a subdeclaração.'},
  'Control iD iDFace':{passos:['Instalar o conector edge no controle de acesso','Descobrir os controladores na rede','Testar o provisionamento de uma credencial'],
-   campos:[['Endereço do controlador','192.168.0.10','ro'],['Modelo','Control iD iDFace','select'],['Provisionar/revogar automático','ligado','toggle'],['Modos de acesso','facial · cartão · QR · PIN','ro']]},
+   campos:[['Endereço do controlador','192.168.0.10','ro'],['Modelo','Control iD iDFace/iDBlock','select'],['Provisionar/revogar automático','ligado','toggle'],['Modos de acesso','facial · cartão · QR · PIN','ro']],
+   nota:'Conector nativo via API REST TCP/IP da Control iD. Requer a ponte edge no local — o equipamento tem IP na rede interna. Template facial é dado sensível (LGPD): guarda local.'},
+ 'Controle de acesso (outras marcas)':{passos:['Solicitar o SDK/API ao fabricante','Instalar o conector edge no local','Homologar o modelo e o firmware'],
+   campos:[['Fabricante','Intelbras · ZKTeco · Hikvision · Dahua','select'],['Integração','SDK sob solicitação / homologação','ro'],['Modo genérico (fallback)','Wiegand / relé','select']],
+   nota:'Esses fabricantes liberam SDK/API sob solicitação (às vezes NDA). Enquanto não homologado, opera no modo genérico Wiegand/relé via controlador intermediário.'},
  'Cancela veicular (TAG/placa)':{passos:['Conectar a leitora de TAG/LPR da estacionamento','Vincular as faixas/estacionamento','Sincronizar a lista de placas com as lojas'],
    campos:[['Leitora','TAG (UHF) + LPR','select'],['Estacionamento / faixas','G1 · G2','ro'],['Lista de placas','sincronizada com as lojas','toggle']]},
  'Telemetria de elevador':{passos:['Selecionar a conservadora/fabricante','Configurar o webhook/sensor por piso','Testar o disparo de parada'],
-   campos:[['Conservadora / fabricante','Atlas Schindler (Ahead)','select'],['Pisos cobertas','Piso A · Piso B','ro'],['Disparo automático de aviso','ligado','toggle']]},
- 'CFTV / câmeras':{passos:['Conectar o gravador (NVR)','Escolher os canais por evento de acesso','Definir a retenção das imagens'],
-   campos:[['Gravador (NVR)','—','select'],['Canais por evento','entrada · estacionamento','ro'],['Retenção','30 dias','select']]},
+   campos:[['Conservadora / fabricante','Atlas Schindler (Ahead)','select'],['Pisos cobertos','Piso A · Piso B','ro'],['Disparo automático de aviso','ligado','toggle']],
+   nota:'A telemetria automatiza o aviso; se o sensor cair, o registro manual de parada segue funcionando (nunca fica inviável).'},
+ 'CFTV / câmeras':{passos:['Descobrir as câmeras por ONVIF na rede','Escolher os canais por evento de acesso','Definir a retenção das imagens'],
+   campos:[['Protocolo','ONVIF (Profile S/T) + RTSP','select'],['Fabricante','ONVIF genérico · Intelbras · Hikvision · Dahua','select'],['Canais por evento','entrada · estacionamento','ro'],['Retenção','30 dias','select']],
+   nota:'ONVIF cobre a maioria das câmeras IP para descoberta e evento; o vídeo vem por RTSP. Recursos avançados (analítico/LPR/people counting) podem pedir o SDK do fabricante. Requer ponte edge.'},
+ 'Contadores de fluxo (people counting)':{passos:['Escolher o sensor/câmera de contagem','Posicionar por entrada/piso','Ligar a alimentação da conversão do lojista'],
+   campos:[['Tecnologia','câmera de contagem · wi-fi/bluetooth','select'],['Pontos','entradas · corredores','ro'],['Anonimato','contagem agregada, sem identificar pessoa','toggle']],
+   nota:'Contagem anônima e agregada (LGPD) — nunca identifica a pessoa. Alimenta a conversão do lojista (passaram × entraram) e o ROI do FPP.'},
  'Sistema da administradora':{passos:['Autenticar no ERP da administradora','Selecionar o que sincroniza','Definir a frequência'],
-   campos:[['ERP da administradora','Superlógica','select'],['Sincroniza','carteira · taxas · prestação de contas','ro'],['Frequência','a cada 1 h','select']]},
- 'Assinatura digital':{passos:['Escolher o provedor de assinatura','Cadastrar o(s) signatário(s)','Confirmar o primeiro cadastro'],
-   campos:[['Provedor','Clicksign','select'],['Tipo','assinatura eletrônica + carimbo de tempo','select'],['Signatários','1 pendente de confirmação','ro']]},
+   campos:[['ERP da administradora','Superlógica · TownSq · uCondo · Ahreas · Group','select'],['Sincroniza','carteira · taxas · prestação de contas','ro'],['Frequência','a cada 1 h','select']],
+   nota:'Ex.: Superlógica expõe API REST v2 (app_token + access_token). Boleto e contabilidade nascem no ERP; a plataforma espelha e opera por cima — coexistência honesta, sem lock-in.'},
+ 'Assinatura digital':{passos:['Escolher o provedor de assinatura','Definir o nível (simples/avançada/qualificada)','Cadastrar o(s) signatário(s)'],
+   campos:[['Provedor','Clicksign · D4Sign · ZapSign · Autentique','select'],['Nível','simples · avançada · qualificada (ICP-Brasil)','select'],['Carimbo de tempo','ligado','toggle'],['Signatários','1 pendente de confirmação','ro']],
+   nota:'Lei 14.063/2020 define 3 níveis de assinatura; a Lei 14.309/2022 admite assembleia e deliberação por meio eletrônico. Para ata que possa ser questionada em juízo, use a qualificada (ICP-Brasil); para a maioria, a avançada com trilha de auditoria basta.'},
 };
 function campoConfig(c){const [label,ex,tipo]=c;
   if(tipo==='toggle') return `<div class="linha1" style="margin:6px 0"><span class="sub" style="margin:0; font-weight:600">${label}</span><span class="chip ${/lig|sim|sincronizada/.test(ex)?'verde':'cinza'}" style="border:none">${ex}</span></div>`;
@@ -4245,10 +4870,12 @@ function configurarIntegracao(nome){
   abrirModal(`<h3>${tIco('importar')}Configurar — ${i.nome}</h3>
     <div class="linha1" style="margin-bottom:6px"><span class="sub" style="margin:0">${i.sub}</span><span class="chip ${st[1]}">${st[0]}</span></div>
     ${!conectada&&i.det?`<div class="aviso-lgpd" style="border-left:3px solid var(--${i.status==='erro'?'vermelho':'laranja'})">${i.det}</div>`:''}
+    ${i.edge?edgeBanner():''}
     ${!conectada?`<div class="sub" style="margin:12px 0 4px"><b>Como conectar</b></div>
       <div class="item" style="padding:11px 13px"><div class="sub" style="margin:0; display:flex; flex-direction:column; gap:5px">${spec.passos.map((p,ix)=>`<span style="display:flex; gap:8px; line-height:1.4"><b style="color:var(--verde-escuro); flex:0 0 auto">${ix+1}.</b><span>${p}</span></span>`).join('')}</div></div>`:''}
     <div class="sub" style="margin:12px 0 4px"><b>Configuração</b></div>
     ${spec.campos.map(campoConfig).join('')}
+    ${spec.nota?`<div class="sub" style="margin-top:10px; font-size:.8rem; color:var(--cinza); line-height:1.45">ℹ️ ${spec.nota}</div>`:''}
     <div class="aviso-lgpd" style="margin-top:10px">Credenciais (tokens, chaves, convênios) ficam no <b>cofre</b> da plataforma — nunca em texto. ${i.dono==='carteira'?'Integração <b>padrão da carteira</b>: mudar aqui afeta os shoppings que herdam o padrão.':'Integração <b>deste shopping</b>.'}</div>
     <button class="btn principal btn-grande" onclick="salvarConfigInt('${nome.replace(/'/g,'')}','${af[1]}')">${af[0]}</button>`);
 }
@@ -4258,6 +4885,80 @@ function salvarConfigInt(nome,acao){
   if(acao!=='configurar'){ i.status='conectada'; i.sync='agora'; i.autor=ator; i.det=''; logAudit(`conectou a integração ${nome}`,ator); }
   fecharModal(); atualizar();
   toast(acao==='configurar'?`${nome}: configuração salva (demo).`:`${nome}: conectada (demo).`);
+}
+function atorInt(){ return (perfil==='administradora'||admContexto)?'Administradora':'Superintendente'; }
+function pontesBloco(){
+  return `<h2>${tIco('importar')}Ponte local (hub)</h2>
+    <div class="sub" style="margin:-4px 0 8px">Os aparelhos de acesso, câmera e contagem ficam na rede do shopping (IP interno). A ponte é o elo seguro entre eles e a nuvem — <b>conexão só de saída</b>, credenciais no cofre, biometria guardada no local.</div>
+    ${pontes.map(pontaCard).join('')||`<div class="sub" style="color:var(--cinza); padding:4px 0 8px">Nenhuma ponte pareada ainda.</div>`}
+    <button class="btn claro btn-grande" style="margin:2px 0 12px" onclick="parearPonte()">+ Parear nova ponte</button>`;
+}
+function pontaCard(p){
+  const on=p.status==='online';
+  return `<div class="item" style="border-color:${on?'var(--verde)':'var(--vermelho)'}">
+    <div class="linha1"><span class="nome">${tIco('importar')}${p.nome}</span><span class="chip ${on?'verde':'vermelho'}">${on?'online':'offline'}</span></div>
+    <div class="sub" style="margin-top:4px">${p.local} · ${on?'último sinal '+p.heartbeat:'sem sinal desde '+(p.caiu||'ontem')}</div>
+    ${!on?`<div class="sub" style="margin-top:4px; color:var(--vermelho)">Aparelhos desta ponte indisponíveis — o registro manual na segurança/doca segue funcionando.</div>`:''}
+    <div class="sub" style="margin-top:6px">Aparelhos adotados: ${p.aparelhos.length?p.aparelhos.join(' · '):'nenhum ainda'}</div>
+    <div class="botoes" style="justify-content:flex-end; margin-top:8px; flex-wrap:wrap">
+      <button class="btn claro" style="flex:0 0 auto; padding:7px 12px; font-size:12.5px" onclick="simularQuedaPonte(${p.id})">${on?'Simular queda':'Religar'}</button>
+      <button class="btn claro" style="flex:0 0 auto; padding:7px 12px; font-size:12.5px" onclick="pingPonte(${p.id})">Testar sinal</button>
+      <button class="btn principal" style="flex:0 0 auto; padding:7px 12px; font-size:12.5px" onclick="descobrirAparelhos(${p.id})">Descobrir aparelhos</button>
+    </div>
+  </div>`;
+}
+function parearPonte(){
+  const cod=('GIRO-'+Math.random().toString(36).slice(2,6)+'-'+Math.random().toString(36).slice(2,6)).toUpperCase();
+  abrirModal(`<h3>${tIco('importar')}Parear nova ponte</h3>
+    <div class="sub" style="margin-bottom:10px">Ligue o aparelho da ponte na tomada e na rede (um mini-PC na segurança, ou o próprio DVR com saída de internet). Ele conecta sozinho — <b>só de saída</b>: a nuvem nunca abre porta pra dentro do shopping.</div>
+    <label>Código de pareamento</label>
+    <div class="item" style="text-align:center; padding:14px; background:var(--cinza-claro); margin:2px 0 4px"><span style="font-size:1.4rem; font-weight:800; letter-spacing:.08em">${cod}</span></div>
+    <label style="margin-top:6px">Onde ela fica</label>
+    <select id="pt-local"><option>Segurança — doca</option><option>CFTV — sala de monitoramento</option><option>Estacionamento</option><option>Sala técnica</option></select>
+    <button class="btn principal btn-grande" onclick="salvarPonte('${cod}')">Confirmar pareamento</button>
+    <div class="aviso-lgpd">Digite o código na ponte (ou aponte a câmera pro QR que ela mostra). Vale por 10 min e fica amarrada só a este shopping.</div>`);
+}
+function salvarPonte(cod){
+  const local=document.getElementById('pt-local').value;
+  const id=Math.max(0,...pontes.map(p=>p.id))+1;
+  pontes.push({id, nome:'Ponte — '+local.split('—')[0].trim(), local, status:'online', desde:'agora', heartbeat:'agora', aparelhos:[]});
+  logAudit('pareou uma ponte local ('+local+')',atorInt());
+  fecharModal(); irPara('integracoes'); toast('Ponte pareada e online — agora descubra os aparelhos.');
+}
+function simularQuedaPonte(id){
+  const p=pontes.find(x=>x.id===id); if(!p) return;
+  if(p.status==='online'){ p.status='offline'; p.caiu='agora'; toast(p.nome+': caiu — aparelhos indisponíveis, registro manual segue.'); }
+  else { p.status='online'; p.heartbeat='agora'; toast(p.nome+': religada e online.'); }
+  irPara('integracoes');
+}
+function pingPonte(id){
+  const p=pontes.find(x=>x.id===id); if(!p) return;
+  if(p.status==='online'){ p.heartbeat='agora'; toast(p.nome+': sinal ok — respondeu agora.'); }
+  else { toast(p.nome+': sem resposta — verifique energia e rede.'); }
+  irPara('integracoes');
+}
+function descobrirAparelhos(id){
+  const p=pontes.find(x=>x.id===id); if(!p) return;
+  if(p.status!=='online'){ toast('A ponte está offline — religue antes de descobrir.'); return; }
+  const achados=CATALOGO_EDGE.filter(a=>!pontes.some(x=>x.aparelhos.includes(a)));
+  abrirModal(`<h3>${tIco('importar')}Aparelhos na rede</h3>
+    <div class="sub" style="margin-bottom:10px">A ${p.nome} varreu a rede do shopping e encontrou estes aparelhos. Adote os que são deste shopping.</div>
+    ${achados.length?achados.map((a,ix)=>`<div class="item"><div class="linha1"><span class="nome">${a}</span><button class="btn principal" style="flex:0 0 auto; padding:6px 12px; font-size:13px" onclick="adotarAparelho(${id},'${a.replace(/'/g,'')}')">Adotar</button></div><div class="sub" style="margin-top:3px">descoberto via ${/ONVIF/.test(a)?'ONVIF':/counting/.test(a)?'sensor/API':'API local'} · IP 192.168.0.${11+ix}</div></div>`).join(''):`<div class="sub" style="padding:6px 0">Todos os aparelhos da rede já foram adotados. 🎉</div>`}
+    <div class="aviso-lgpd">Só adote o que pertence ao shopping. A credencial de acesso vai pro <b>cofre</b>; o template facial e a contagem ficam no local (agregada e anônima, LGPD).</div>`);
+}
+function adotarAparelho(id,nome){
+  const p=pontes.find(x=>x.id===id); if(!p) return;
+  if(!p.aparelhos.includes(nome)) p.aparelhos.push(nome);
+  const alvo=EDGE_INTEGRACAO[nome];
+  const i=alvo&&integracoes.find(x=>x.nome===alvo);
+  if(i && i.status!=='conectada'){ i.status='conectada'; i.sync='agora'; i.autor=atorInt(); i.det=''; }
+  logAudit('adotou o aparelho '+nome+' na '+p.nome,atorInt());
+  fecharModal(); irPara('integracoes'); toast(nome+' adotado e conectado (demo).');
+}
+function edgeBanner(){
+  const on=pontes.filter(p=>p.status==='online');
+  if(on.length) return `<div class="item" style="border-color:var(--verde); margin-top:8px"><div class="sub" style="margin:0">${tIco('importar')}Conecta pela <b>${on[0].nome}</b> (online). Os aparelhos são descobertos na rede pela ponte — dá pra adotar direto por lá, em <b>Descobrir aparelhos</b>.</div></div>`;
+  return `<div class="item" style="border-color:var(--laranja); margin-top:8px"><div class="sub" style="margin:0 0 8px">${tIco('alerta')}Este aparelho fica na rede do shopping (IP interno) e conecta por uma <b>ponte local</b> — e ainda não há nenhuma online.</div><button class="btn principal" style="flex:0 0 auto" onclick="parearPonte()">Parear ponte primeiro</button></div>`;
 }
 TELAS.integracoes = () => {
   const cont=s=>integracoes.filter(i=>i.status===s).length;
@@ -4269,6 +4970,11 @@ TELAS.integracoes = () => {
     return `<div class="item" style="${i.status==='erro'?'border-color:var(--vermelho)':i.status==='pendente'?'border-color:var(--laranja)':''}">
       <div class="linha1"><span class="nome">${i.nome}</span><span class="chip ${st[1]}">${st[0]}</span></div>
       <div class="sub" style="margin-top:4px">${i.sub}</div>
+      ${i.proto?`<div class="sub" style="margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:.73rem">
+        <span class="chip cinza" style="border:none; padding:2px 8px">${i.proto}</span>
+        ${i.badge?`<span class="chip ${(BADGE_INT[i.badge]||['','cinza'])[1]}" style="border:none; padding:2px 8px">${(BADGE_INT[i.badge]||[''])[0]}</span>`:''}
+        ${i.edge?`<span style="color:var(--cinza)">· requer ponte local (edge)</span>`:''}
+      </div>`:''}
       ${i.det?`<div class="sub" style="margin-top:4px; color:${i.status==='erro'?'var(--vermelho)':'var(--laranja)'}">${i.det}</div>`:''}
       <div class="sub" style="margin-top:6px; display:flex; gap:7px; flex-wrap:wrap; align-items:center">
         <span class="chip cinza" style="border:none; padding:2px 9px; font-size:.7rem; font-weight:700">${i.dono==='carteira'?'gerida pela administradora':'deste shopping'}</span>
@@ -4292,6 +4998,7 @@ TELAS.integracoes = () => {
       ${pend?`<span class="chip ${cont('erro')?'vermelho':'laranja'}" style="border:none">${pend} pendência${pend>1?'s':''}</span>`:''}
       ${nconf?`<span class="chip cinza" style="border:none">${nconf} não configurada${nconf>1?'s':''}</span>`:''}
     </div>
+    ${pontesBloco()}
     ${fams.map(f=>`<h2>${f}</h2>${integracoes.filter(i=>i.fam===f).map(intCard).join('')}`).join('')}
     <div class="aviso-lgpd">Quem gere o quê: integrações técnicas da carteira (WhatsApp, banco, ERP) ficam com a <b>administradora</b>; as do shopping (acesso, elevador, câmeras) com o <b>superintendente</b>. Toda conexão ou alteração é registrada na trilha de auditoria.</div>
   </div>`;
@@ -4499,6 +5206,10 @@ function praAgir(){
   if(typeof compra!=='undefined' && compra.status!=='aprovada') itens.push({cor:'acao', tit:'Revisar cotações do facilities', ctx:'2-3 orçamentos por escrito prontos pra sua decisão.', acao:'Revisar', fn:`fecharModal();irPara('compras')`});
   if(!provaReconhecida) itens.push({cor:'verde', tit:'Dar visto na operação do facilities', ctx:'Reconheça o que ele já fez e registrou hoje.', acao:'Ver e dar visto', fn:`fecharModal();verProvaSindico()`});
   if(!assembleia.convocada) itens.push({cor:'acao', tit:'Convocar a assembleia 25/06', ctx:'Pauta minutada — falta convocar pelos canais.', acao:'Convocar', fn:`fecharModal();irPara('assembleia')`, sec:'Rascunho Gi', secfn:`rascunhoEdi('convocacao')`});
+  /* obrigações do ano (Agenda) na janela de ação viram pendência aqui — inbox único, sem card paralelo */
+  agendaEventos.forEach(e=>{ if((e.publico==='sindico'||e.publico==='ambos') && (e.cat==='obrigacao'||e.cat==='contrato'||e.cat==='mandato') && e.status!=='resolvido'){
+    const st=agStatus(e.data); if(st[1]==='laranja'||st[1]==='vermelho')
+      itens.push({cor: st[1]==='vermelho'?'vermelho':'laranja', tit:`${e.titulo.split('—')[0].trim()} — ${st[0]}${e.status==='andamento'?' · em andamento':''}`, ctx:e.base||'Obrigação do ano — planeje com antecedência.', acao:'Providenciar', fn:`fecharModal();verObrigacao(${e.id})`}); } });
   return itens;
 }
 function praAgirCard(){
